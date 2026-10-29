@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jornada</title>
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="{{ url_for('static', filename='img/jornada.svg') }}" type="image/svg+xml">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script>
+    // Aplica el último tema conocido antes de pintar, para evitar parpadeos.
+    try {
+      var t = localStorage.getItem('wt-theme') || 'system';
+      if (t === 'system') t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      document.documentElement.dataset.theme = t;
+    } catch (e) {}
+  </script>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-play" viewBox="0 0 24 24"><path fill="currentColor" d="M7 4.5v15l12-7.5z"/></symbol>
+      <symbol id="i-coffee" viewBox="0 0 24 24"><path d="M17 8h1a4 4 0 0 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4z"/><path d="M6 2v2M10 2v2M14 2v2"/></symbol>
+      <symbol id="i-return" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></symbol>
+      <symbol id="i-stop" viewBox="0 0 24 24"><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></symbol>
+      <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+      <symbol id="i-login" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></symbol>
+      <symbol id="i-hourglass" viewBox="0 0 24 24"><path d="M6 2h12M6 22h12"/><path d="M7 2v4a5 5 0 0 0 10 0V2M7 22v-4a5 5 0 0 1 10 0v4"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+      <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
+      <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+      <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4z"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+      <symbol id="i-building" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01"/></symbol>
+      <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></symbol>
+      <symbol id="i-palm" viewBox="0 0 24 24"><path d="M13 8c0-2.8-2.2-5-5-5-1.7 0-3.2.8-4 2M13 8c0-2.8 2.2-5 5-5 1.7 0 3.2.8 4 2"/><path d="M13 8c-3 0-6 2-7 5M13 8c3 0 6 2 7 5"/><path d="M13 8v13M8 21h10"/></symbol>
+      <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+      <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M8 17v-5M13 17V8M18 17v-8"/></symbol>
+      <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/></symbol>
+      <symbol id="i-scale" viewBox="0 0 24 24"><path d="M12 3v18M7 21h10M3 7h18"/><path d="m6 7-3 7a3 3 0 0 0 6 0zM18 7l-3 7a3 3 0 0 0 6 0z"/></symbol>
+      <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15v4M17 17h4M5 3v3M3.5 4.5h3"/></symbol>
+    </defs>
+  </svg>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="brand-mark"><svg><use href="#i-clock"/></svg></span>
+        <span class="brand-name">Jornada</span>
+      </div>
+      <div class="topbar-center">
+        <span id="todayLabel" class="today-label">—</span>
+        <span class="sep">·</span>
+        <span id="liveClock" class="live-clock tabular">--:--:--</span>
+      </div>
+      <div class="topbar-actions">
+        <button class="icon-btn" id="themeBtn" title="Cambiar tema" aria-label="Cambiar tema">
+          <svg class="only-dark"><use href="#i-sun"/></svg><svg class="only-light"><use href="#i-moon"/></svg>
+        </button>
+        <button class="icon-btn" id="settingsBtn" title="Ajustes" aria-label="Ajustes"><svg><use href="#i-settings"/></svg></button>
+        <button class="icon-btn" id="quitBtn" title="Cerrar Jornada (detiene el servidor)" aria-label="Cerrar Jornada"><svg><use href="#i-power"/></svg></button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <div id="globalBanner" class="banner" hidden></div>
+
+    <section class="hero-grid">
+      <article class="card hero" id="hero" data-status="loading">
+        <div class="ring-wrap">
+          <svg class="ring" viewBox="0 0 220 220" aria-hidden="true">
+            <defs>
+              <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="var(--ring-a)"/><stop offset="100%" stop-color="var(--ring-b)"/>
+              </linearGradient>
+            </defs>
+            <circle class="ring-track" cx="110" cy="110" r="96"/>
+            <circle class="ring-bar" id="ringBar" cx="110" cy="110" r="96" pathLength="1000"/>
+          </svg>
+          <div class="ring-center">
+            <span class="ring-label" id="countLabel">Te queda</span>
+            <span class="countdown tabular" id="countdown">--:--:--</span>
+            <span class="ring-sub" id="progressText">—</span>
+          </div>
+        </div>
+
+        <div class="hero-side">
+          <div class="hero-top">
+            <span class="status-pill" id="statusPill"><span class="dot"></span><span id="statusText">Cargando…</span></span>
+            <span class="mode-badge" id="modeBadge"></span>
+          </div>
+
+          <div class="exit-block">
+            <span class="exit-label" id="exitLabel">Puedes salir a las</span>
+            <span class="exit-time tabular" id="exitTime">--:--</span>
+            <span class="exit-note" id="exitNote"></span>
+          </div>
+
+          <div class="break-live" id="breakLive" hidden>
+            <svg><use href="#i-coffee"/></svg>
+            <span>Descanso en curso</span>
+            <strong class="tabular" id="breakTimer">00:00:00</strong>
+          </div>
+
+          <div class="alerts" id="heroAlerts"></div>
+          <div class="actions" id="actions"></div>
+        </div>
+      </article>
+
+      <aside class="card today-card">
+        <div class="card-head">
+          <h2>Hoy</h2>
+          <button class="ghost-btn small" id="editTodayBtn"><svg><use href="#i-edit"/></svg>Editar</button>
+        </div>
+        <div class="dayline" id="dayline" aria-hidden="true"></div>
+        <ul class="timeline" id="timeline"></ul>
+        <div class="break-meter">
+          <div class="break-meter-head">
+            <span>Descanso obligatorio</span>
+            <span class="tabular" id="breakMeterText">—</span>
+          </div>
+          <div class="meter"><span id="breakMeterBar"></span><span class="meter-opt" id="breakMeterOpt"></span></div>
+          <span class="muted small" id="breakMeterNote"></span>
+        </div>
+      </aside>
+    </section>
+
+    <section class="tiles">
+      <div class="tile"><span class="tile-icon c-accent"><svg><use href="#i-check-circle"/></svg></span>
+        <div><span class="tile-label">Trabajado</span><strong class="tile-value tabular" id="tWorked">—</strong><span class="tile-sub" id="tWorkedSub"></span></div></div>
+      <div class="tile"><span class="tile-icon c-blue" id="tRemainingIcon"><svg><use href="#i-hourglass"/></svg></span>
+        <div><span class="tile-label" id="tRemainingLabel">Pendiente</span><strong class="tile-value tabular" id="tRemaining">—</strong><span class="tile-sub" id="tRemainingSub"></span></div></div>
+      <div class="tile"><span class="tile-icon c-amber"><svg><use href="#i-coffee"/></svg></span>
+        <div><span class="tile-label">Descanso</span><strong class="tile-value tabular" id="tBreak">—</strong><span class="tile-sub" id="tBreakSub"></span></div></div>
+      <div class="tile"><span class="tile-icon c-green"><svg><use href="#i-login"/></svg></span>
+        <div><span class="tile-label">Entrada</span><strong class="tile-value tabular" id="tIn">—</strong><span class="tile-sub" id="tInSub"></span></div></div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2><svg><use href="#i-chart"/></svg>Estadísticas</h2>
+      </div>
+      <div class="stats-grid" id="stats"></div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2><svg><use href="#i-calendar"/></svg>Historial</h2>
+        <button class="ghost-btn" id="addDayBtn"><svg><use href="#i-plus"/></svg>Añadir jornada</button>
+      </div>
+
+      <div class="history-grid">
+        <article class="card calendar-card">
+          <div class="card-head">
+            <button class="icon-btn small" id="prevMonth" aria-label="Mes anterior"><svg><use href="#i-left"/></svg></button>
+            <h3 id="monthTitle">—</h3>
+            <button class="icon-btn small" id="nextMonth" aria-label="Mes siguiente"><svg><use href="#i-right"/></svg></button>
+          </div>
+          <div class="cal-weekdays"><span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span>S</span><span>D</span></div>
+          <div class="cal-grid" id="calGrid"></div>
+          <div class="legend">
+            <span><i class="lg green"></i>Completada</span>
+            <span><i class="lg yellow"></i>En curso / incompleta</span>
+            <span><i class="lg red"></i>Déficit</span>
+            <span><i class="lg gray"></i>Sin registro</span>
+          </div>
+        </article>
+
+        <article class="card detail-card" id="dayDetail"></article>
+      </div>
+
+      <article class="card week-card">
+        <div class="card-head">
+          <div class="week-title">
+            <h3>Vista semanal</h3>
+            <span class="muted small" id="weekRange">—</span>
+          </div>
+          <div class="week-nav">
+            <button class="icon-btn small" id="prevWeek" aria-label="Semana anterior"><svg><use href="#i-left"/></svg></button>
+            <button class="ghost-btn small" id="thisWeek">Hoy</button>
+            <button class="icon-btn small" id="nextWeek" aria-label="Semana siguiente"><svg><use href="#i-right"/></svg></button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="week-table">
+            <thead><tr><th>Día</th><th class="hide-sm">Entrada</th><th class="hide-sm">Salida</th><th class="hide-sm">Descanso</th><th>Trabajado</th><th class="hide-xs">Objetivo</th><th class="num">Balance</th></tr></thead>
+            <tbody id="weekBody"></tbody>
+            <tfoot id="weekFoot"></tfoot>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <footer class="foot muted small">Datos guardados en local · <code>data/records.json</code></footer>
+  </main>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <div class="closed-screen" id="closedScreen" hidden>
+    <span class="brand-mark"><svg><use href="#i-power"/></svg></span>
+    <h2>Jornada se ha cerrado</h2>
+    <p class="muted">Todos los datos están guardados. Ya puedes cerrar esta pestaña.<br>Para volver a abrirla, ejecuta <code>iniciar.bat</code> o <code>iniciar.sh</code>.</p>
+  </div>
+
+  <!-- Editor de jornada -->
+  <dialog class="modal" id="dayDialog">
+    <form method="dialog" id="dayForm" novalidate>
+      <header class="modal-head">
+        <div>
+          <h3 id="dayDialogTitle">Editar jornada</h3>
+          <span class="muted small" id="dayDialogSub"></span>
+        </div>
+        <button type="button" class="icon-btn small" data-close aria-label="Cerrar"><svg><use href="#i-x"/></svg></button>
+      </header>
+      <div class="modal-body">
+        <div class="form-row">
+          <label class="field"><span>Fecha</span><input type="date" id="fDate" required></label>
+          <div class="field"><span>Modalidad</span>
+            <div class="segmented" id="fMode">
+              <button type="button" data-value="office"><svg><use href="#i-building"/></svg>Oficina</button>
+              <button type="button" data-value="remote"><svg><use href="#i-home"/></svg>Teletrabajo</button>
+              <button type="button" data-value="off"><svg><use href="#i-palm"/></svg>Libre</button>
+            </div>
+          </div>
+        </div>
+        <label class="field"><span>Perfil de horario</span>
+          <select id="fProfile"></select>
+        </label>
+        <div class="form-row">
+          <label class="field"><span>Entrada</span><input type="time" id="fIn"></label>
+          <label class="field"><span>Salida <em class="muted">(vacía si sigue abierta)</em></span><input type="time" id="fOut"></label>
+        </div>
+
+        <div class="field">
+          <span>Descansos</span>
+          <div class="breaks-list" id="fBreaks"></div>
+          <button type="button" class="ghost-btn small" id="fAddBreak"><svg><use href="#i-plus"/></svg>Añadir descanso</button>
+        </div>
+
+        <div class="form-row three">
+          <label class="field"><span>Objetivo efectivo</span><input type="text" id="fTarget" inputmode="numeric" placeholder="8:30" pattern="\d{1,2}:\d{2}"></label>
+          <label class="field"><span>Descanso mínimo (min)</span><input type="number" id="fMinBreak" min="0" max="600" step="1"></label>
+          <label class="field"><span>Descanso opcional (min)</span><input type="number" id="fOptBreak" min="0" max="600" step="1"></label>
+        </div>
+
+        <label class="field"><span>Observaciones</span><textarea id="fNotes" rows="2" maxlength="2000" placeholder="Opcional"></textarea></label>
+
+        <div class="preview" id="fPreview"></div>
+        <div class="form-error" id="fError" hidden></div>
+      </div>
+      <footer class="modal-foot">
+        <button type="button" class="danger-btn" id="fDelete"><svg><use href="#i-trash"/></svg>Eliminar</button>
+        <span class="spacer"></span>
+        <button type="button" class="ghost-btn" data-close>Cancelar</button>
+        <button type="submit" class="primary-btn" id="fSave">Guardar</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Ajustes -->
+  <dialog class="modal modal-wide" id="settingsDialog">
+    <form method="dialog" id="settingsForm" novalidate>
+      <header class="modal-head">
+        <div><h3>Ajustes</h3><span class="muted small">Los cambios no alteran las jornadas ya cerradas.</span></div>
+        <button type="button" class="icon-btn small" data-close aria-label="Cerrar"><svg><use href="#i-x"/></svg></button>
+      </header>
+      <div class="modal-body">
+        <h4>Perfiles de horario</h4>
+        <div class="table-wrap">
+          <table class="settings-table">
+            <thead><tr><th>Perfil</th><th>Entrada ref.</th><th>Salida ref.</th><th>Efectivo</th><th>Desc. mín.</th><th>Desc. opc.</th></tr></thead>
+            <tbody id="sProfiles"></tbody>
+          </table>
+        </div>
+        <p class="muted small">Efectivo en formato <code>H:MM</code>. Descansos en minutos. El descanso máximo habitual es la suma de mínimo + opcional.</p>
+
+        <h4>Semana habitual</h4>
+        <div class="table-wrap">
+          <table class="settings-table">
+            <thead><tr><th>Día</th><th>Laborable</th><th>Perfil</th><th>Modalidad</th></tr></thead>
+            <tbody id="sWeekdays"></tbody>
+          </table>
+        </div>
+
+        <h4>Intensivo de verano por fechas</h4>
+        <div class="periods" id="sPeriods"></div>
+        <div class="period-foot">
+          <button type="button" class="ghost-btn small" id="sAddPeriod"><svg><use href="#i-plus"/></svg>Añadir período</button>
+          <div class="field inline"><span>Se aplica a</span><div class="day-toggles" id="sSummerDays"></div></div>
+        </div>
+        <p class="muted small">Dentro de estas fechas, los días laborables marcados usan el perfil «Intensivo de verano». Prioridad: perfil elegido a mano en una jornada &gt; período de verano &gt; semana habitual. Las jornadas pasadas conservan su perfil.</p>
+
+        <h4>Apariencia</h4>
+        <div class="form-row three">
+          <div class="field"><span>Tema</span>
+            <div class="segmented" id="sTheme">
+              <button type="button" data-value="system">Sistema</button>
+              <button type="button" data-value="light">Claro</button>
+              <button type="button" data-value="dark">Oscuro</button>
+            </div></div>
+          <div class="field"><span>Formato de hora</span>
+            <div class="segmented" id="sTimeFormat">
+              <button type="button" data-value="24h">17:23</button>
+              <button type="button" data-value="12h">5:23 p. m.</button>
+            </div></div>
+          <div class="field"><span>Formato de duración</span>
+            <div class="segmented" id="sDurFormat">
+              <button type="button" data-value="hms">02:34:18</button>
+              <button type="button" data-value="hm">2 h 34 min</button>
+            </div></div>
+        </div>
+        <div class="form-error" id="sError" hidden></div>
+      </div>
+      <footer class="modal-foot">
+        <span class="spacer"></span>
+        <button type="button" class="ghost-btn" data-close>Cancelar</button>
+        <button type="submit" class="primary-btn">Guardar ajustes</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Confirmación -->
+  <dialog class="modal modal-sm" id="confirmDialog">
+    <form method="dialog">
+      <div class="modal-body confirm-body">
+        <span class="confirm-icon" id="confirmIcon"><svg><use href="#i-alert"/></svg></span>
+        <h3 id="confirmTitle">¿Seguro?</h3>
+        <p class="muted" id="confirmText"></p>
+      </div>
+      <footer class="modal-foot">
+        <span class="spacer"></span>
+        <button value="cancel" class="ghost-btn">Cancelar</button>
+        <button value="ok" class="primary-btn" id="confirmOk">Confirmar</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

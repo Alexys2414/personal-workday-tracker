@@ -1,0 +1,30 @@
+# ── Datos personales: NUNCA al repositorio ─────────────────────────────
+# Fichajes, ajustes, copias .bak, log y archivo de control de la instancia.
+/data/
+
+# Acceso directo generado por instalar-escritorio.sh (contiene rutas de tu equipo).
+/Jornada.desktop
+
+# ── Python ─────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+/.venv/
+/venv/
+# Python portable opcional (ver README)
+/python/
+
+# ── Configuración privada y del editor ─────────────────────────────────
+.env
+.env.*
+.claude/settings.local.json
+.vscode/
+.idea/
+*.swp
+*~
+
+# ── Sistema operativo y temporales ─────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.tmp
+*.log
+.jornada-run.json
