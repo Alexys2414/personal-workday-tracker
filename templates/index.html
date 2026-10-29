@@ -54,7 +54,7 @@
   <header class="topbar">
     <div class="topbar-inner">
       <div class="brand">
-        <span class="brand-mark"><svg><use href="#i-clock"/></svg></span>
+        <span class="brand-mark"><img src="{{ url_for('static', filename='img/jornada.svg') }}" alt=""></span>
         <span class="brand-name">Jornada</span>
       </div>
       <div class="topbar-center">
@@ -79,15 +79,11 @@
       <article class="card hero" id="hero" data-status="loading">
         <div class="ring-wrap">
           <svg class="ring" viewBox="0 0 220 220" aria-hidden="true">
-            <defs>
-              <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stop-color="var(--ring-a)"/><stop offset="100%" stop-color="var(--ring-b)"/>
-              </linearGradient>
-            </defs>
             <circle class="ring-track" cx="110" cy="110" r="96"/>
             <circle class="ring-bar" id="ringBar" cx="110" cy="110" r="96" pathLength="1000"/>
+            <g class="ring-ticks" id="ringTicks"></g>
           </svg>
-          <div class="ring-center">
+          <div class="ring-center" role="timer" aria-live="off">
             <span class="ring-label" id="countLabel">Te queda</span>
             <span class="countdown tabular" id="countdown">--:--:--</span>
             <span class="ring-sub" id="progressText">—</span>
@@ -135,27 +131,35 @@
       </aside>
     </section>
 
-    <section class="tiles">
-      <div class="tile"><span class="tile-icon c-accent"><svg><use href="#i-check-circle"/></svg></span>
-        <div><span class="tile-label">Trabajado</span><strong class="tile-value tabular" id="tWorked">—</strong><span class="tile-sub" id="tWorkedSub"></span></div></div>
-      <div class="tile"><span class="tile-icon c-blue" id="tRemainingIcon"><svg><use href="#i-hourglass"/></svg></span>
-        <div><span class="tile-label" id="tRemainingLabel">Pendiente</span><strong class="tile-value tabular" id="tRemaining">—</strong><span class="tile-sub" id="tRemainingSub"></span></div></div>
-      <div class="tile"><span class="tile-icon c-amber"><svg><use href="#i-coffee"/></svg></span>
-        <div><span class="tile-label">Descanso</span><strong class="tile-value tabular" id="tBreak">—</strong><span class="tile-sub" id="tBreakSub"></span></div></div>
-      <div class="tile"><span class="tile-icon c-green"><svg><use href="#i-login"/></svg></span>
-        <div><span class="tile-label">Entrada</span><strong class="tile-value tabular" id="tIn">—</strong><span class="tile-sub" id="tInSub"></span></div></div>
-    </section>
-
-    <section class="section">
-      <div class="section-head">
-        <h2><svg><use href="#i-chart"/></svg>Estadísticas</h2>
+    <section class="summary" aria-label="Resumen de hoy">
+      <div class="sum-cell" data-tone="work">
+        <span class="sum-label"><i></i>Trabajado</span>
+        <strong class="sum-value" id="tWorked">—</strong><span class="sum-sub" id="tWorkedSub"></span>
       </div>
-      <div class="stats-grid" id="stats"></div>
+      <div class="sum-cell" data-tone="ink" id="tRemainingCell">
+        <span class="sum-label"><i></i><span id="tRemainingLabel">Pendiente</span></span>
+        <strong class="sum-value" id="tRemaining">—</strong><span class="sum-sub" id="tRemainingSub"></span>
+      </div>
+      <div class="sum-cell" data-tone="break">
+        <span class="sum-label"><i></i>Descanso</span>
+        <strong class="sum-value" id="tBreak">—</strong><span class="sum-sub" id="tBreakSub"></span>
+      </div>
+      <div class="sum-cell" data-tone="ink">
+        <span class="sum-label"><i></i>Entrada</span>
+        <strong class="sum-value" id="tIn">—</strong><span class="sum-sub" id="tInSub"></span>
+      </div>
     </section>
 
     <section class="section">
       <div class="section-head">
-        <h2><svg><use href="#i-calendar"/></svg>Historial</h2>
+        <h2>Balance</h2>
+      </div>
+      <div class="stats-grid" id="stats" aria-busy="true"></div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>Historial</h2>
         <button class="ghost-btn" id="addDayBtn"><svg><use href="#i-plus"/></svg>Añadir jornada</button>
       </div>
 
@@ -170,7 +174,7 @@
           <div class="cal-grid" id="calGrid"></div>
           <div class="legend">
             <span><i class="lg green"></i>Completada</span>
-            <span><i class="lg yellow"></i>En curso / incompleta</span>
+            <span><i class="lg yellow"></i>En curso o sin cerrar</span>
             <span><i class="lg red"></i>Déficit</span>
             <span><i class="lg gray"></i>Sin registro</span>
           </div>
@@ -201,13 +205,13 @@
       </article>
     </section>
 
-    <footer class="foot muted small">Datos guardados en local · <code>data/records.json</code></footer>
+    <footer class="foot muted small">Tus fichajes se guardan solo en este equipo, en la carpeta <code>data/</code>.</footer>
   </main>
 
   <div class="toasts" id="toasts" aria-live="polite"></div>
 
   <div class="closed-screen" id="closedScreen" hidden>
-    <span class="brand-mark"><svg><use href="#i-power"/></svg></span>
+    <span class="brand-mark"><img src="{{ url_for('static', filename='img/jornada.svg') }}" alt=""></span>
     <h2>Jornada se ha cerrado</h2>
     <p class="muted">Todos los datos están guardados. Ya puedes cerrar esta pestaña.<br>Para volver a abrirla, ejecuta <code>iniciar.bat</code> o <code>iniciar.sh</code>.</p>
   </div>

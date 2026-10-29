@@ -1,18 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#6366f1"/>
-      <stop offset="1" stop-color="#8b5cf6"/>
-    </linearGradient>
-    <linearGradient id="arc" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#a5f3c4"/>
-      <stop offset="1" stop-color="#34d399"/>
-    </linearGradient>
-  </defs>
-  <rect x="8" y="8" width="240" height="240" rx="60" fill="url(#bg)"/>
-  <rect x="8" y="8" width="240" height="120" rx="60" fill="#fff" opacity=".08"/>
-  <circle cx="128" cy="134" r="70" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="16"/>
-  <path d="M128 64 A70 70 0 1 1 61.4 155.6" fill="none" stroke="url(#arc)" stroke-width="16" stroke-linecap="round"/>
-  <path d="M128 98 V134 L152 150" fill="none" stroke="#fff" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="128" cy="134" r="9" fill="#fff"/>
+  <rect x="8" y="8" width="240" height="240" rx="62" fill="#0f766e"/>
+  <circle cx="128" cy="128" r="74" fill="none" stroke="#ffffff" stroke-opacity=".2" stroke-width="18"/>
+  <path d="M128 54 A74 74 0 1 1 57.6 150.9" fill="none" stroke="#ec8a3f" stroke-width="18" stroke-linecap="round"/>
+  <path d="M128 92 V128 L153 144" fill="none" stroke="#ffffff" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="128" cy="128" r="9" fill="#ffffff"/>
 </svg>

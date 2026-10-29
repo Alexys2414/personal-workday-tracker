@@ -333,7 +333,7 @@ function tick() {
   document.title =
     hs === 'working' ? `${hms(l.remaining, true)} · Jornada` :
     hs === 'done' ? `+${hms(l.extra)} · Jornada` :
-    hs === 'on_break' ? `☕ ${hms(l.cur)} · Jornada` : 'Jornada';
+    hs === 'on_break' ? `Descanso ${hms(l.cur)} · Jornada` : 'Jornada';
 }
 
 function renderStatusPill(t, hs) {
@@ -370,7 +370,7 @@ function renderCountdown(t, l, hs) {
       sub.textContent = '100 % completado';
       break;
     case 'on_break':
-      label.textContent = l.done ? 'Tiempo extra · en pausa' : 'Te queda · en pausa';
+      label.textContent = l.done ? 'Tiempo extra, en pausa' : 'Te queda, en pausa';
       value.textContent = l.done ? '+' + hms(l.extra) : hms(l.remaining, true);
       sub.textContent = `${pct} % completado`;
       break;
@@ -388,7 +388,26 @@ function renderCountdown(t, l, hs) {
       sub.textContent = t.status === 'off' ? 'Día marcado como libre' : 'Día no laborable';
       ring = 0;
   }
+  value.classList.toggle('long', value.textContent.length > 8);   // «+00:12:30» o «−00:12:30»
   $('#ringBar').style.strokeDasharray = `${Math.max(0, Math.min(1, ring)) * 1000} 1000`;
+  renderTicks(hs === 'off' ? 0 : t.target_s);
+}
+
+/** Una marca por hora del objetivo: el anillo se lee como la esfera de un reloj. */
+function renderTicks(targetS) {
+  const hours = Math.round(targetS / 3600);
+  const g = $('#ringTicks');
+  if (Number(g.dataset.hours) === hours) return;
+  g.dataset.hours = String(hours);
+  if (hours < 2 || hours > 16) { g.innerHTML = ''; return; }
+  const lines = [];
+  for (let i = 1; i < hours; i++) {
+    const a = (i / (targetS / 3600)) * 2 * Math.PI;
+    const [x1, y1] = [110 + 88 * Math.cos(a), 110 + 88 * Math.sin(a)];
+    const [x2, y2] = [110 + 104 * Math.cos(a), 110 + 104 * Math.sin(a)];
+    lines.push(`<line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}"/>`);
+  }
+  g.innerHTML = lines.join('');
 }
 
 function renderExit(t, l, hs) {
@@ -399,13 +418,13 @@ function renderExit(t, l, hs) {
     case 'idle':
       label.textContent = 'Si empiezas ahora, saldrías a las';
       html = bigClock(l.exit);
-      text = t.min_break_s ? `Incluye ${human(t.min_break_s)} de descanso obligatorio · ${ref}` : ref;
+      text = t.min_break_s ? `Incluye ${human(t.min_break_s)} de descanso obligatorio. ${ref}.` : ref;
       break;
     case 'working':
       label.textContent = 'Puedes salir a las';
       html = bigClock(l.exit);
       if (l.pendingBreak > 0) {
-        text = `Incluye <b>${human(l.pendingBreak, true)}</b> de descanso obligatorio pendiente · sin él: <b>${clock(l.exitMin)}</b>`;
+        text = `Incluye <b>${human(l.pendingBreak, true)}</b> de descanso obligatorio pendiente. Sin él, a las <b>${clock(l.exitMin)}</b>.`;
       } else if (l.optLeft > 0) {
         text = `Con el descanso opcional restante (${human(l.optLeft, true)}): <b>${clock(l.exitOpt)}</b>`;
       } else {
@@ -482,13 +501,15 @@ function renderTiles(t, l) {
   const deficit = t.status === 'finished' && l.remaining >= 1;
   $('#tRemainingLabel').textContent = extra ? 'Tiempo extra' : deficit ? 'Déficit de hoy' : 'Pendiente';
   $('#tRemaining').textContent = extra ? '+' + dur(l.extra) : deficit ? '−' + dur(l.remaining) : dur(l.remaining, true);
-  $('#tRemainingIcon').className = `tile-icon ${extra ? 'c-green' : deficit ? 'c-red' : 'c-blue'}`;
+  $('#tRemainingCell').dataset.tone = extra ? 'gold' : deficit ? 'bad' : 'ink';
   $('#tRemainingSub').textContent = l.target ? `${Math.floor(l.progress * 100)} % de la jornada` : '—';
 
   $('#tBreak').textContent = dur(l.brk);
   $('#tBreakSub').textContent = t.status === 'on_break'
     ? `En curso: ${hms(l.cur)}`
-    : `${t.breaks.length} ${t.breaks.length === 1 ? 'pausa' : 'pausas'} · mín. ${human(t.min_break_s)}`;
+    : t.breaks.length
+      ? `${t.breaks.length} ${t.breaks.length === 1 ? 'pausa' : 'pausas'}, mínimo ${human(t.min_break_s)}`
+      : (t.min_break_s ? `Mínimo de hoy: ${human(t.min_break_s)}` : 'Sin descanso obligatorio');
 
   $('#tIn').textContent = t.clock_in ? clock(t.clock_in) : '—';
   let sub = 'Sin fichar';
@@ -513,9 +534,9 @@ function renderBreakMeter(t, l) {
   bar.classList.toggle('done', l.brk >= min);
   optBar.style.width = `${(Math.max(0, Math.min(l.brk - min, opt)) / total) * 100}%`;
   $('#breakMeterNote').textContent = l.brk < min
-    ? `Faltan ${human(min - l.brk, true)} · opcional: ${human(opt)} más`
+    ? `Faltan ${human(min - l.brk, true)}${opt ? `, más ${human(opt)} opcionales` : ''}`
     : l.brk <= total
-      ? `Completado · opcional restante: ${human(total - l.brk, true)}`
+      ? (opt ? `Completado. Te quedan ${human(total - l.brk, true)} opcionales` : 'Completado')
       : `Superado en ${human(l.brk - total)} el máximo habitual`;
 }
 
@@ -550,35 +571,85 @@ function renderDayline(t, l) {
   scale.innerHTML = `<span>${clock(start)}</span><span>${clock(horizon)}</span>`;
 }
 
+const STAT_PANELS = [
+  { key: 'today', title: 'Hoy', scale: 3600 },
+  { key: 'week', title: 'Esta semana', scale: 2 * 3600 },
+  { key: 'month', title: 'Este mes', scale: 5 * 3600 },
+  { key: 'total', title: 'Acumulado', scale: 10 * 3600 },
+];
+
+function buildStats() {
+  const box = $('#stats');
+  box.innerHTML = STAT_PANELS.map((p) => `
+    <article class="stat-panel ${p.key === 'total' ? 'total' : ''}" data-panel="${p.key}">
+      <h3>${p.title}</h3>
+      <span class="stat-balance tabular" data-f="balance">—</span>
+      <div class="bal-bar" aria-hidden="true"><span data-f="bar"></span></div>
+      <dl class="stat-rows" data-f="rows"></dl>
+    </article>`).join('');
+  box.dataset.built = '1';
+  box.removeAttribute('aria-busy');
+}
+
+function setPanel(key, balance, rows, { pending = false } = {}) {
+  const panel = $(`#stats [data-panel="${key}"]`);
+  const def = STAT_PANELS.find((p) => p.key === key);
+  const value = panel.querySelector('[data-f="balance"]');
+  // Lo que falta de una jornada en curso es «pendiente», nunca un déficit con signo.
+  const html = pending ? `${dur(Math.abs(balance), true)}<small>pendiente</small>` : signed(balance);
+  if (value.innerHTML !== html) value.innerHTML = html;
+  value.className = `stat-balance tabular ${pending ? 'pend' : balance >= 1 ? 'pos' : balance <= -1 ? 'neg' : 'zero'}`;
+  // Barra divergente: el centro es 0; derecha = tiempo de más, izquierda = de menos.
+  const half = pending ? 0 : Math.min(50, (Math.abs(balance) / def.scale) * 50);
+  const bar = panel.querySelector('[data-f="bar"]');
+  bar.className = balance >= 0 ? 'pos' : 'neg';
+  bar.style.transform = `scaleX(${half / 50})`;
+  const rowsHtml = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+  const dl = panel.querySelector('[data-f="rows"]');
+  if (dl.dataset.html !== rowsHtml) { dl.innerHTML = rowsHtml; dl.dataset.html = rowsHtml; }
+}
+
 function renderStats(t, l) {
   const w = state.week, m = state.month, all = state.total;
   if (!w || !m || !all) return;
+  if (!$('#stats').dataset.built) buildStats();
   // Ajuste en vivo: lo que ha cambiado hoy desde la última foto del servidor.
   const dWorked = l.worked - t.worked_s;
   const dExtra = l.extra - t.extra_s;
   const pendingNow = l.inProgress ? l.remaining : 0;
   const wWorked = w.worked_s + dWorked, mWorked = m.worked_s + dWorked;
   const wBal = w.balance_s + dExtra, mBal = m.balance_s + dExtra, totalBal = all.balance_s + dExtra;
-  const cls = (v) => (v >= 1 ? 'pos' : v <= -1 ? 'neg' : '');
-  const bar = (a, b) => `<div class="bar"><span style="width:${b ? Math.min(100, (a / b) * 100) : 0}%"></span></div>`;
-  const pendTxt = pendingNow > 0 ? `<span class="pend">${dur(pendingNow, true)} pendiente hoy</span>` : 'Solo cuenta jornadas cerradas';
   const completed = m.completed_days + (l.done && !(t.worked_s >= t.target_s && t.target_s) ? 1 : 0);
-  const tiles = [
-    ['Trabajado', 'Semana', dur(wWorked), `${Math.round(w.target_s ? (wWorked / w.target_s) * 100 : 0)} % del objetivo`, '', bar(wWorked, w.target_s)],
-    ['Objetivo', 'Semana', dur(w.target_s), 'Según el horario de cada día', ''],
-    ['Balance', 'Semana', signed(wBal), pendTxt, cls(wBal)],
-    ['Promedio diario', 'Mes', dur(m.worked_days ? mWorked / m.worked_days : 0), `${m.worked_days} ${m.worked_days === 1 ? 'día fichado' : 'días fichados'}`, ''],
-    ['Trabajado', 'Mes', dur(mWorked), `${Math.round(m.target_s ? (mWorked / m.target_s) * 100 : 0)} % del objetivo`, '', bar(mWorked, m.target_s)],
-    ['Balance acumulado', 'Total', signed(totalBal),
-      all.since ? `${all.worked_days} jornadas desde el ${longDate(all.since, { day: 'numeric', month: 'short', year: 'numeric' })}` : 'Sin jornadas todavía', cls(totalBal)],
-    ['Balance', 'Mes', signed(mBal), pendTxt, cls(mBal)],
-    ['Jornadas completadas', 'Mes', `${completed}`, `de ${m.worked_days} fichadas`, ''],
-  ];
-  const html = tiles.map(([label, scope, value, sub, c, extra = '']) =>
-    `<div class="stat"><span class="stat-label">${label}<em>${scope}</em></span>
-     <span class="stat-value ${c}">${value}</span><span class="stat-sub">${sub}</span>${extra}</div>`).join('');
-  const box = $('#stats');
-  if (box.dataset.html !== html) { box.innerHTML = html; box.dataset.html = html; }
+  const pendRow = pendingNow > 0 ? [['Pendiente hoy', `<span class="pend">${dur(pendingNow, true)}</span>`]] : [];
+
+  // Hoy: en curso solo cuenta el extra; lo que falta es pendiente, no déficit.
+  let todayBal = 0, todayPending = false;
+  if (t.status === 'finished') todayBal = l.worked - l.target;
+  else if (l.inProgress) { todayBal = l.extra > 0 ? l.extra : -l.remaining; todayPending = l.extra <= 0 && l.remaining > 0; }
+  setPanel('today', todayBal, [
+    ['Trabajado', dur(l.worked)],
+    ['Objetivo', l.target ? dur(l.target) : 'Sin objetivo'],
+    ['Descanso', dur(l.brk)],
+  ], { pending: todayPending });
+
+  setPanel('week', wBal, [
+    ['Trabajado', dur(wWorked)],
+    ['Objetivo', dur(w.target_s)],
+    ...pendRow,
+  ]);
+
+  setPanel('month', mBal, [
+    ['Trabajado', dur(mWorked)],
+    ['Objetivo', dur(m.target_s)],
+    ['Completadas', `${completed} de ${m.worked_days}`],
+    ['Media diaria', dur(m.worked_days ? mWorked / m.worked_days : 0)],
+  ]);
+
+  setPanel('total', totalBal, all.since ? [
+    ['Jornadas', String(all.worked_days)],
+    ['Desde', longDate(all.since, { day: 'numeric', month: 'short', year: 'numeric' })],
+    ['Media diaria', dur(all.worked_days ? (all.worked_s + dWorked) / all.worked_days : 0)],
+  ] : [['Jornadas', 'Ninguna todavía']]);
 }
 
 /* ------------------------------------------- render al recibir datos */
@@ -587,8 +658,11 @@ function renderStatic() {
   const t = state.today;
   $('#todayLabel').textContent = longDate(t.date);
   const mode = t.status === 'nonworking' ? null : MODE_INFO[t.mode];
-  const profile = t.profile && t.target_s ? ` · ${PROFILE_NAMES[t.profile]}` : '';
-  $('#modeBadge').innerHTML = mode ? `${icon(mode.icon)}${mode.label}${profile}` : `${icon('i-palm')}No laborable`;
+  const profile = t.profile && t.target_s
+    ? `<span class="mode-badge">${icon(t.profile === 'summer' ? 'i-sun' : 'i-clock')}${PROFILE_NAMES[t.profile]}</span>` : '';
+  $('#modeBadge').innerHTML = mode ? `${icon(mode.icon)}${mode.label}` : `${icon('i-palm')}No laborable`;
+  $('#modeBadge').nextElementSibling?.remove();
+  if (profile) $('#modeBadge').insertAdjacentHTML('afterend', profile);
   renderTimeline(t);
   renderBanner();
   state.heroKey = null;   // fuerza a repintar los botones
@@ -608,10 +682,12 @@ function renderTimeline(t) {
   items.push(t.clock_out
     ? ['out', 'i-stop', 'Salida', clock(t.clock_out), '']
     : ['', 'i-clock', 'Salida prevista', `<span id="tlExit">—</span>`, t.ref_end ? `Referencia ${t.ref_end}` : '']);
-  $('#timeline').innerHTML = items.map(([k, ic, title, time, sub]) => `
+  const html = items.map(([k, ic, title, time, sub]) => `
     <li><span class="tl-icon ${k}">${icon(ic)}</span>
       <div class="tl-main"><span class="tl-title">${title}</span>${sub ? `<span class="tl-sub">${sub}</span>` : ''}</div>
       <span class="tl-time">${time}</span></li>`).join('');
+  const list = $('#timeline');
+  if (list.dataset.html !== html) { list.innerHTML = html; list.dataset.html = html; }
 }
 
 function renderBanner() {
@@ -656,7 +732,7 @@ async function doAction(action, button) {
   button?.classList.add('busy');
   try {
     const res = await api('/api/clock', { method: 'POST', body: { action, expect: t.status } });
-    const balance = res.today.target_s ? ` · balance ${signed(res.today.balance_s)}` : '';
+    const balance = res.today.target_s ? `, balance ${signed(res.today.balance_s)}` : '';
     const msg = {
       start: `Jornada iniciada a las ${clock(nowMs())}`,
       break_start: 'Descanso iniciado. ¡Disfrútalo!',
@@ -682,6 +758,7 @@ function celebrate() {
   const key = `wt-celebrated-${state.today.date}`;
   try { if (localStorage.getItem(key)) return; localStorage.setItem(key, '1'); } catch (e) { /* sin almacenamiento */ }
   toast('¡Jornada completada! Ya puedes salir.', 'party', 8000);
+  confetti();
   if ('Notification' in window && Notification.permission === 'granted') {
     try { new Notification('¡Jornada completada!', { body: 'Ya puedes salir. A partir de ahora cuenta como tiempo extra.' }); } catch (e) { /* ignorar */ }
   }
@@ -689,9 +766,41 @@ function celebrate() {
 
 /* -------------------------------------------------------- calendario */
 
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+
+/** Unos pocos papelitos que salen del anillo y caen: una vez al día, ~1,4 s. */
+function confetti() {
+  if (reducedMotion.matches) return;
+  const hero = $('#hero');
+  const ring = $('#hero .ring-wrap').getBoundingClientRect();
+  const box = hero.getBoundingClientRect();
+  const layer = document.createElement('div');
+  layer.className = 'confetti';
+  hero.append(layer);
+  const colors = ['--gold-fill', '--work-fill', '--break-fill'].map((v) => getComputedStyle(hero).getPropertyValue(v));
+  const cx = ring.left - box.left + ring.width / 2, cy = ring.top - box.top + ring.height / 2;
+  for (let i = 0; i < 22; i++) {
+    const piece = document.createElement('i');
+    piece.style.left = `${cx}px`;
+    piece.style.top = `${cy}px`;
+    piece.style.background = colors[i % colors.length];
+    layer.append(piece);
+    const angle = (i / 22) * Math.PI * 2 + Math.random() * 0.3;
+    const dist = 90 + Math.random() * 90;
+    const dx = Math.cos(angle) * dist, dy = Math.sin(angle) * dist;
+    const spin = (Math.random() - 0.5) * 720;
+    piece.animate([
+      { transform: 'translate(-50%, -50%) scale(0.6) rotate(0deg)', opacity: 1 },
+      { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) rotate(${spin / 2}deg)`, opacity: 1, offset: 0.45 },
+      { transform: `translate(calc(-50% + ${dx * 1.15}px), calc(-50% + ${dy + 120}px)) rotate(${spin}deg)`, opacity: 0 },
+    ], { duration: 1400 + Math.random() * 300, easing: 'cubic-bezier(0.23, 1, 0.32, 1)', fill: 'forwards' });
+  }
+  setTimeout(() => layer.remove(), 1900);
+}
+
 const STATUS_CHIP = (c) => ({
   finished: c.color === 'green' ? ['green', 'Completada'] : ['red', 'Déficit'],
-  working: c.color === 'green' ? ['green', 'Completada · en curso'] : ['yellow', 'En curso'],
+  working: c.color === 'green' ? ['green', 'Completada, en curso'] : ['yellow', 'En curso'],
   on_break: ['yellow', 'En descanso'],
   unclosed: ['yellow', 'Sin hora de salida'],
   not_started: ['', 'Sin iniciar'],
@@ -717,9 +826,13 @@ function renderCalendar() {
     const mark = c.registered && c.mode === 'off' ? icon('i-palm')
       : (c.profile === 'summer' && c.target_s ? icon('i-sun') : '') + (c.mode === 'remote' && c.workday ? icon('i-home') : '');
     const hours = c.clock_in ? shortDur(c.worked_s) : '';
-    const title = `${longDate(c.date)} · ${STATUS_CHIP(c)[1]}${hours ? ' · ' + hours : ''}`;
-    cells.push(`<button class="${cls}" data-date="${c.date}" title="${esc(title)}">
-      <span class="n">${n}</span>${mark ? `<span class="mk">${mark}</span>` : ''}<span class="h">${hours}</span></button>`);
+    const pct = c.target_s ? Math.min(100, (c.worked_s / c.target_s) * 100) : (c.clock_in ? 100 : 0);
+    const bal = c.status === 'finished' && Math.abs(c.balance_s) >= 60
+      ? `<span class="bal">${c.balance_s > 0 ? '+' : '−'}${shortDur(Math.abs(c.balance_s))}</span>` : '';
+    const title = `${longDate(c.date)}: ${STATUS_CHIP(c)[1]}${hours ? `, ${hours} trabajadas` : ''}`;
+    cells.push(`<button class="${cls}" data-date="${c.date}" title="${esc(title)}" aria-label="${esc(title)}" aria-pressed="${c.date === state.selected}">
+      <span class="n">${n}</span>${mark ? `<span class="mk">${mark}</span>` : ''}
+      <span><span class="row"><span class="h">${hours}</span>${bal}</span>${c.clock_in ? `<span class="bar"><span style="width:${pct}%"></span></span>` : ''}</span></button>`);
   }
   $('#calGrid').innerHTML = cells.join('');
 }
@@ -742,9 +855,10 @@ function selectDate(key) {
 
 function renderDetail() {
   const box = $('#dayDetail');
+  const set = (html) => { if (box.dataset.html !== html) { box.innerHTML = html; box.dataset.html = html; } };
   const c = state.monthData?.days.find((d) => d.date === state.selected);
   if (!c) {
-    box.innerHTML = `<div class="empty-state">${icon('i-calendar')}<span>Selecciona un día del calendario</span></div>`;
+    set(`<div class="empty-state">${icon('i-calendar')}<span>Selecciona un día del calendario</span></div>`);
     return;
   }
   const [chipCls, chipTxt] = STATUS_CHIP(c);
@@ -754,19 +868,19 @@ function renderDetail() {
 
   if (!c.registered) {
     const canAdd = c.status !== 'future';
-    box.innerHTML = `${head}<div class="empty-state">${icon('i-calendar')}
+    set(`${head}<div class="empty-state">${icon('i-calendar')}
       <span>${c.status === 'future' ? 'Este día aún no ha llegado.' : 'No hay ningún registro este día.'}</span>
       ${c.target_s ? `<span class="small">Objetivo previsto: ${human(c.target_s)}</span>` : ''}
-      <button class="primary-btn" data-edit="${c.date}">${icon(canAdd ? 'i-plus' : 'i-edit')}${canAdd ? 'Registrar jornada' : 'Planificar (libre, notas…)'}</button></div>`;
+      <button class="primary-btn" data-edit="${c.date}">${icon(canAdd ? 'i-plus' : 'i-edit')}${canAdd ? 'Registrar jornada' : 'Planificar (libre, notas…)'}</button></div>`);
     return;
   }
 
   const breaks = c.breaks.map((b) => `<dt class="small">· ${clock(b.start)} – ${b.end ? clock(b.end) : 'en curso'}</dt><dd class="small">${human(b.duration_s)}</dd>`).join('');
-  box.innerHTML = `${head}
+  set(`${head}
     <dl class="kv">
       <dt>Entrada</dt><dd>${c.clock_in ? clock(c.clock_in) : '—'}</dd>
       <dt>Salida</dt><dd>${c.clock_out ? clock(c.clock_out) : c.clock_in ? (c.status === 'unclosed' ? '<span class="pend">Sin registrar</span>' : 'En curso') : '—'}</dd>
-      <dt>Descansos</dt><dd>${c.breaks.length ? `${c.breaks.length} · ${human(c.break_s)}` : '—'}</dd>
+      <dt>Descansos</dt><dd>${c.breaks.length ? `${human(c.break_s)}, ${c.breaks.length} ${c.breaks.length === 1 ? 'pausa' : 'pausas'}` : '—'}</dd>
       ${breaks}
       <div class="divider"></div>
       <dt>Trabajo efectivo</dt><dd>${dur(c.worked_s)}</dd>
@@ -777,13 +891,13 @@ function renderDetail() {
     <div class="detail-actions">
       <button class="ghost-btn" data-edit="${c.date}">${icon('i-edit')}Editar</button>
       <button class="danger-btn" data-delete="${c.date}">${icon('i-trash')}Eliminar</button>
-    </div>`;
+    </div>`);
 }
 
 function profileChip(c) {
   if (!c.profile || !(c.workday || c.profile_source === 'manual') || c.mode === 'off') return '';
   const ic = c.profile === 'summer' ? 'i-sun' : 'i-clock';
-  return `<span class="chip">${icon(ic)}${PROFILE_NAMES[c.profile]}${c.profile_source === 'manual' ? ' · manual' : ''}</span>`;
+  return `<span class="chip">${icon(ic)}${PROFILE_NAMES[c.profile]}${c.profile_source === 'manual' ? ' (manual)' : ''}</span>`;
 }
 
 function balanceLabel(c) {
@@ -891,7 +1005,7 @@ async function openEditor(date, isNew = false) {
   setSegment($('#fMode'), c.mode);
   editing.auto = c.auto;
   const autoName = PROFILE_NAMES[c.auto.profile] + (c.auto.profile_source === 'period' ? ' (período de verano)' : '');
-  $('#fProfile').innerHTML = `<option value="">Automático · ${autoName}</option>`
+  $('#fProfile').innerHTML = `<option value="">Automático: ${autoName}</option>`
     + profileOptions(c.profile_source === 'manual' ? c.profile : '');
   setTime($('#fIn'), c.local.clock_in);
   setTime($('#fOut'), c.local.clock_out);
@@ -976,20 +1090,34 @@ async function saveEditor(ev) {
   const date = $('#fDate').value;
   if (!date) { err.textContent = 'Indica una fecha.'; err.hidden = false; return; }
   const save = $('#fSave');
-  save.disabled = true;
+  save.classList.add('is-saving');
   try {
     await api(`/api/days/${date}`, { method: 'PUT', body });
-    dayDialog.close();
+    closeDialog(dayDialog);
     toast('Jornada guardada', 'ok');
     state.selected = date;
     await refreshAll();
     selectDate(date);
+    flashDay(date);
   } catch (e) {
+    err.hidden = true;
+    void err.offsetWidth;            // reinicia la animación de error
     err.textContent = e.message;
     err.hidden = false;
   } finally {
-    save.disabled = false;
+    save.classList.remove('is-saving');
   }
+}
+
+/** Confirma visualmente el guardado: un pulso en la celda del calendario. */
+function flashDay(date) {
+  requestAnimationFrame(() => {
+    const cell = $(`.cal-day[data-date="${date}"]`);
+    if (!cell) return;
+    cell.classList.remove('saved');
+    void cell.offsetWidth;
+    cell.classList.add('saved');
+  });
 }
 
 async function deleteDay(date) {
@@ -1117,7 +1245,7 @@ async function saveSettings(ev) {
       },
     });
     fmtCache.clear();
-    settingsDialog.close();
+    closeDialog(settingsDialog);
     toast('Ajustes guardados', 'ok');
     await refreshAll();
   } catch (e) {
@@ -1142,7 +1270,8 @@ async function quitApp() {
 
 async function toggleTheme() {
   const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-  applyTheme(next);
+  if (document.startViewTransition && !reducedMotion.matches) document.startViewTransition(() => applyTheme(next));
+  else applyTheme(next);
   try {
     state.settings = await api('/api/settings', { method: 'PUT', body: { theme: next } });
   } catch (e) {
@@ -1183,8 +1312,8 @@ function bindEvents() {
     if (del) deleteDay(del.dataset.delete);
   });
 
-  $('#prevWeek').addEventListener('click', () => selectDate(addDays(state.weekDate, -7)));
-  $('#nextWeek').addEventListener('click', () => selectDate(addDays(state.weekDate, 7)));
+  $('#prevWeek').addEventListener('click', () => { selectDate(addDays(state.weekDate, -7)); slideIn($('#weekBody'), -1); });
+  $('#nextWeek').addEventListener('click', () => { selectDate(addDays(state.weekDate, 7)); slideIn($('#weekBody'), 1); });
   $('#thisWeek').addEventListener('click', () => selectDate(dateKey(nowMs())));
   $('#weekBody').addEventListener('click', (e) => {
     const tr = e.target.closest('[data-date]');
@@ -1192,8 +1321,8 @@ function bindEvents() {
   });
 
   // Diálogos
-  document.querySelectorAll('dialog [data-close]').forEach((b) => b.addEventListener('click', () => b.closest('dialog').close()));
-  document.querySelectorAll('dialog').forEach((d) => d.addEventListener('click', (e) => { if (e.target === d) d.close('cancel'); }));
+  document.querySelectorAll('dialog [data-close]').forEach((b) => b.addEventListener('click', () => closeDialog(b.closest('dialog'))));
+  document.querySelectorAll('dialog').forEach((d) => d.addEventListener('click', (e) => { if (e.target === d) closeDialog(d, 'cancel'); }));
   document.querySelectorAll('.segmented').forEach((seg) => seg.addEventListener('click', (e) => {
     const b = e.target.closest('button[data-value]');
     if (b) { setSegment(seg, b.dataset.value); updatePreview(); }
@@ -1209,7 +1338,7 @@ function bindEvents() {
   $('#fDate').addEventListener('change', (e) => { if (e.target.value) openEditor(e.target.value, true); });
   $('#fDelete').addEventListener('click', async () => {
     const date = editing?.date;
-    if (date && await deleteDay(date)) dayDialog.close();
+    if (date && await deleteDay(date)) closeDialog(dayDialog);
   });
   $('#settingsForm').addEventListener('submit', saveSettings);
   $('#sAddPeriod').addEventListener('click', () => addPeriodRow());
@@ -1230,10 +1359,34 @@ function shiftMonth(delta) {
   if (month < 1) { month = 12; year--; }
   if (month > 12) { month = 1; year++; }
   state.cal = { year, month };
-  loadMonth().catch((e) => toast(e.message, 'err'));
+  loadMonth().then(() => slideIn($('#calGrid'), delta)).catch((e) => toast(e.message, 'err'));
+}
+
+/** Entrada direccional corta (el mes siguiente llega desde la derecha). */
+function slideIn(el, direction) {
+  if (reducedMotion.matches || !el.animate) return;
+  el.animate([
+    { opacity: 0, transform: `translateX(${direction > 0 ? 14 : -14}px)` },
+    { opacity: 1, transform: 'none' },
+  ], { duration: 240, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+}
+
+/** Cierre animado de los modales (la salida es más rápida que la entrada). */
+function closeDialog(dlg, value) {
+  if (!dlg.open || dlg.classList.contains('closing')) return;
+  if (reducedMotion.matches) { dlg.close(value); return; }
+  dlg.classList.add('closing');
+  setTimeout(() => { dlg.classList.remove('closing'); dlg.close(value); }, 170);
 }
 
 /* -------------------------------------------------------------- inicio */
+
+function renderSkeletons() {
+  $('#calGrid').innerHTML = Array.from({ length: 35 }, () => '<span class="cal-day skeleton"></span>').join('');
+  $('#stats').innerHTML = Array.from({ length: 4 }, () => '<div class="stat-panel skeleton" style="min-height:150px"></div>').join('');
+  $('#weekBody').innerHTML = Array.from({ length: 4 }, () => '<tr><td colspan="7"><div class="skeleton" style="height:18px"></div></td></tr>').join('');
+  $('#dayDetail').innerHTML = '<div class="skeleton" style="height:22px;width:60%"></div><div class="skeleton" style="height:140px;margin-top:18px"></div>';
+}
 
 async function init() {
   try {
@@ -1257,4 +1410,6 @@ async function init() {
 }
 
 bindEvents();
+renderSkeletons();
+window.addEventListener('scroll', () => $('.topbar').classList.toggle('scrolled', scrollY > 4), { passive: true });
 init();
