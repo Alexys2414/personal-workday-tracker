@@ -106,6 +106,7 @@ Funciona sin conexión, guarda todo en un archivo JSON local y no necesita permi
 | 📥 **Importación segura** | Vista previa, gestión de duplicados y copia de seguridad antes de guardar. |
 | 🌍 **Español e inglés** | Cambia al instante, sin recargar. |
 | 🌗 **Claro y oscuro** | Tema claro, oscuro o según el sistema; diseño adaptado a escritorio, tableta y móvil. |
+| ♿ **Accesible** | Navegación completa por teclado con foco visible, botones del tamaño adecuado en pantallas táctiles y respeto de `prefers-reduced-motion`. |
 
 ## Requisitos
 
@@ -334,7 +335,7 @@ Las horas se interpretan en `Europe/Madrid`, con los cambios de horario incluido
 ## Desarrollo y pruebas
 
 ```bash
-python3 -m unittest -v        # 87 pruebas
+python3 -m unittest -v        # 96 pruebas
 python3 app.py --open         # arranque manual
 python3 app.py --port 9000    # otro puerto preferido (también PORT=9000)
 WORKTIME_DATA_DIR=/tmp/pruebas python3 app.py   # datos de prueba en otra carpeta
@@ -347,6 +348,7 @@ Las pruebas cubren:
 - **Exportación e importación:** ida y vuelta, duplicados, archivos vueltos a guardar con Excel y protección frente a fórmulas.
 - **Traducciones:** las mismas claves en ambos idiomas y ninguna clave usada sin traducir.
 - **Arranque real:** segunda instancia, puerto ocupado y cierre limpio.
+- **Versiones:** que todo elemento que usa la interfaz exista en la página y que una instancia abierta durante una actualización no mezcle versiones.
 
 ## Solución de problemas
 
@@ -375,9 +377,10 @@ si moviste la carpeta. Si arrancas sin terminal, los mensajes quedan en `data/jo
 </details>
 
 <details>
-<summary><b>Tras actualizar, la página falla o se ve antigua</b></summary>
+<summary><b>He actualizado Jornada con la aplicación abierta</b></summary>
 
-Puede seguir abierto el servidor de la versión anterior. Ciérralo con **⏻** y vuelve a abrir Jornada.
+Jornada lo detecta y muestra un aviso: «Jornada se ha actualizado». Ciérrala con **⏻** y vuelve a abrirla para usar
+la nueva versión del servidor. La página siempre se sirve de forma coherente con los archivos instalados, así que no se mezclan versiones.
 </details>
 
 <details>

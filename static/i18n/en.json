@@ -154,6 +154,9 @@
 
   "banner.offline": "Can't reach the server. The counters keep running; changes will be saved once it's back.",
   "banner.unclosed": "The day of <b>{date}</b> has no clock-out time.",
+  "banner.restart": "Jornada has been updated. To apply the new version, quit it with <b>⏻</b> and open it again.",
+  "banner.reload": "A new version of the interface is available.",
+  "banner.reload_btn": "Reload",
   "banner.fix": "Fix",
 
   "action.start": "Start day",

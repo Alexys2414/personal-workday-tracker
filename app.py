@@ -41,6 +41,18 @@ PORT_ATTEMPTS = 20
 RUN_FILE = ".jornada-run.json"      # PID y puerto de la instancia en marcha
 
 
+def asset_build(base: Path = BASE_DIR) -> str:
+    """Huella de la versión instalada: cambia si se modifica cualquier archivo de la app."""
+    import hashlib
+    files = sorted([*base.glob("*.py"), *base.glob("templates/*.html"),
+                    *base.glob("static/**/*.js"), *base.glob("static/**/*.css"), *base.glob("static/i18n/*.json")])
+    digest = hashlib.sha1()
+    for path in files:
+        stat = path.stat()
+        digest.update(f"{path.relative_to(base)}:{stat.st_mtime_ns}:{stat.st_size};".encode())
+    return digest.hexdigest()[:10]
+
+
 def resolve_data_dir() -> Path:
     return Path(os.environ.get("WORKTIME_DATA_DIR") or BASE_DIR / "data")
 
@@ -50,6 +62,11 @@ def create_app(data_dir: str | Path | None = None,
     app = Flask(__name__)
     app.json.ensure_ascii = False
     app.json.sort_keys = False
+    # La plantilla se lee siempre del disco, igual que CSS y JS: una instancia que lleva
+    # tiempo abierta nunca mezcla HTML antiguo con scripts nuevos.
+    app.config["TEMPLATES_AUTO_RELOAD"] = True
+    app.jinja_env.auto_reload = True
+    app.config["BUILD"] = asset_build()      # versión con la que arrancó este proceso
 
     data_dir = Path(data_dir or resolve_data_dir())
     records_store = JsonStore(data_dir / "records.json", lambda: {"version": 1, "days": {}})
@@ -122,7 +139,7 @@ def create_app(data_dir: str | Path | None = None,
     def index():
         # La página llega ya traducida: sin parpadeos al cargar en otro idioma.
         code = lang()
-        return render_template("index.html", lang=code, i18n=i18n.catalog(code),
+        return render_template("index.html", lang=code, i18n=i18n.catalog(code), build=asset_build(),
                                t=lambda key, **kw: i18n.tr(code, key, **kw))
 
     @app.get("/api/state")
@@ -144,6 +161,8 @@ def create_app(data_dir: str | Path | None = None,
         return jsonify(
             server_time=core.iso(current),
             server_ms=int(current.timestamp() * 1000),
+            build=app.config["BUILD"],
+            disk_build=asset_build(),
             settings=settings,
             today=core.compute_day(today, days.get(today.isoformat()), settings, current),
             week=core.summarize(compute(core.week_dates(today), days, settings, current), current),

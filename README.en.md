@@ -103,6 +103,7 @@ JSON file and doesn't need administrator rights.
 | 📥 **Safe import** | Preview, duplicate handling and a backup before saving. |
 | 🌍 **Spanish and English** | Switches instantly, no page reload. |
 | 🌗 **Light and dark** | Light, dark or system theme; layouts adapted to desktop, tablet and phone. |
+| ♿ **Accessible** | Full keyboard navigation with visible focus, touch-friendly buttons and support for `prefers-reduced-motion`. |
 
 ## Requirements
 
@@ -333,7 +334,7 @@ Times are read in `Europe/Madrid`, daylight-saving changes included. The interfa
 ## Development and tests
 
 ```bash
-python3 -m unittest -v        # 87 tests
+python3 -m unittest -v        # 96 tests
 python3 app.py --open         # manual start
 python3 app.py --port 9000    # different preferred port (or PORT=9000)
 WORKTIME_DATA_DIR=/tmp/test python3 app.py   # test data in another folder
@@ -346,6 +347,7 @@ The tests cover:
 - **Export and import:** round trip, duplicates, files re-saved in Excel and formula protection.
 - **Translations:** the same keys in both languages and no key used without a translation.
 - **Real launches:** second instance, busy port and clean shutdown.
+- **Versions:** every element the interface uses exists in the page, and an instance left open during an update never mixes versions.
 
 ## Troubleshooting
 
@@ -374,9 +376,10 @@ if you moved the folder. When started without a terminal, messages go to `data/j
 </details>
 
 <details>
-<summary><b>After updating, the page breaks or looks old</b></summary>
+<summary><b>I updated Jornada while it was open</b></summary>
 
-The previous version's server may still be running. Quit it with **⏻** and open Jornada again.
+Jornada notices and shows a banner: "Jornada has been updated". Quit it with **⏻** and open it again to run the new
+server version. The page is always served consistently with the installed files, so versions never get mixed.
 </details>
 
 <details>

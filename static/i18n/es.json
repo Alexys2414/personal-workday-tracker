@@ -154,6 +154,9 @@
 
   "banner.offline": "Sin conexión con el servidor. Los contadores siguen funcionando; los cambios se guardarán cuando vuelva.",
   "banner.unclosed": "La jornada del <b>{date}</b> quedó sin hora de salida.",
+  "banner.restart": "Jornada se ha actualizado. Para aplicar la nueva versión, ciérrala con <b>⏻</b> y vuelve a abrirla.",
+  "banner.reload": "Hay una versión nueva de la interfaz.",
+  "banner.reload_btn": "Recargar",
   "banner.fix": "Corregir",
 
   "action.start": "Iniciar jornada",

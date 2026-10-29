@@ -200,6 +200,9 @@ async function loadState() {
   state.month = data.month;
   state.total = data.total;
   state.unclosed = data.unclosed;
+  // Versión: el proceso del servidor, los archivos en disco y esta página deben coincidir.
+  const pageBuild = document.documentElement.dataset.build;
+  state.update = data.build !== data.disk_build ? 'restart' : (pageBuild && pageBuild !== data.disk_build ? 'reload' : null);
   applyTheme(data.settings.theme);
   if (data.settings.language && data.settings.language !== currentLang()) await switchLanguage(data.settings.language, { save: false });
   renderStatic();
@@ -208,24 +211,41 @@ async function loadState() {
 
 async function loadMonth() {
   const { year, month } = state.cal;
-  state.monthData = await api(`/api/month/${year}-${pad(month)}`);
+  const data = await api(`/api/month/${year}-${pad(month)}`);
+  // Al pasar meses rápido, una respuesta antigua no debe pintar el mes equivocado.
+  if (state.cal.year !== year || state.cal.month !== month) return;
+  state.monthData = data;
   renderCalendar();
   renderDetail();
 }
 
 async function loadWeek() {
-  state.weekData = await api(`/api/week/${state.weekDate}`);
+  const day = state.weekDate;
+  const data = await api(`/api/week/${day}`);
+  if (state.weekDate !== day) return;
+  state.weekData = data;
   renderWeek();
 }
 
-async function refreshAll() {
-  if (state.closed) return;
-  try {
-    await loadState();
-    await Promise.all([loadMonth(), loadWeek()]);
-  } catch (e) {
-    toast(e.message, 'err');
-  }
+/** Recarga única: si se pide otra mientras hay una en curso, se repite al terminar
+ *  (así, tras fichar, nunca se pinta una respuesta anterior al fichaje). */
+let refreshing = null;
+let refreshAgain = false;
+function refreshAll() {
+  if (state.closed) return Promise.resolve();
+  if (refreshing) { refreshAgain = true; return refreshing; }
+  refreshing = (async () => {
+    do {
+      refreshAgain = false;
+      try {
+        await loadState();
+        await Promise.all([loadMonth(), loadWeek()]);
+      } catch (e) {
+        toast(e.message, 'err');
+      }
+    } while (refreshAgain && !state.closed);
+  })().finally(() => { refreshing = null; });
+  return refreshing;
 }
 
 /* ------------------------------------------------------- cálculo en vivo */
@@ -693,6 +713,13 @@ function renderBanner() {
   if (state.offline) {
     b.hidden = false;
     b.innerHTML = `${icon('i-alert')}<span>${esc(t('banner.offline'))}</span>`;
+    return;
+  }
+  if (state.update) {
+    b.hidden = false;
+    b.innerHTML = state.update === 'restart'
+      ? `${icon('i-info')}<span>${t('banner.restart')}</span>`
+      : `${icon('i-info')}<span>${esc(t('banner.reload'))}</span><button class="ghost-btn small" data-reload>${icon('i-rotate')}${esc(t('banner.reload_btn'))}</button>`;
     return;
   }
   if (state.unclosed?.length) {
@@ -1445,6 +1472,7 @@ function bindEvents() {
   $('#globalBanner').addEventListener('click', (e) => {
     const b = e.target.closest('[data-fix]');
     if (b) openEditor(b.dataset.fix);
+    if (e.target.closest('[data-reload]')) location.reload();
   });
 
   $('#prevMonth').addEventListener('click', () => shiftMonth(-1));
@@ -1525,7 +1553,7 @@ function bindEvents() {
 
   // Al volver a la pestaña o despertar el equipo, se resincroniza con el servidor.
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshAll(); });
-  window.addEventListener('focus', () => { if (!state.closed) loadState().catch(() => {}); });
+  window.addEventListener('focus', () => refreshAll());
   window.addEventListener('resize', () => { if (settingsDialog.open) selectTab(settingsDialog.dataset.tab || 'schedule'); });
 }
 
@@ -1579,7 +1607,9 @@ async function init() {
   await Promise.all([loadMonth(), loadWeek()]).catch((e) => toast(e.message, 'err'));
 
   // Tick alineado al cambio de segundo (los fichajes se guardan en segundos exactos).
-  const loop = () => { tick(); setTimeout(loop, 1005 - (nowMs() % 1000)); };
+  // El siguiente se programa antes de pintar: un fallo en un fotograma se ve en la
+  // consola, pero no detiene el reloj.
+  const loop = () => { setTimeout(loop, 1005 - (nowMs() % 1000)); tick(); };
   loop();
   setInterval(() => { if (!document.hidden) refreshAll(); }, 60000);
   setInterval(() => { if (document.hidden && !state.closed) api('/api/ping').catch(() => {}); }, 300000);

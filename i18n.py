@@ -8,20 +8,25 @@ añadir su código a LANGUAGES.
 from __future__ import annotations
 
 import json
-from functools import lru_cache
 from pathlib import Path
 
 LANGUAGES = ("es", "en")
 DEFAULT = "es"
 LOCALES = {"es": "es-ES", "en": "en-GB"}
 _DIR = Path(__file__).resolve().parent / "static" / "i18n"
+_CACHE: dict[str, tuple[int, dict]] = {}
 
 
-@lru_cache(maxsize=None)
 def catalog(lang: str) -> dict:
+    """Diccionario del idioma. Se relee si el archivo cambia (sin reiniciar)."""
     lang = lang if lang in LANGUAGES else DEFAULT
-    with open(_DIR / f"{lang}.json", encoding="utf-8") as fh:
-        return json.load(fh)
+    path = _DIR / f"{lang}.json"
+    mtime = path.stat().st_mtime_ns
+    cached = _CACHE.get(lang)
+    if not cached or cached[0] != mtime:
+        with open(path, encoding="utf-8") as fh:
+            cached = _CACHE[lang] = (mtime, json.load(fh))
+    return cached[1]
 
 
 def tr(lang: str, key: str, **params) -> str:

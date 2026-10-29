@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="{{ lang }}" data-theme="dark">
+<html lang="{{ lang }}" data-theme="dark" data-build="{{ build }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Jornada</title>
   <meta name="color-scheme" content="light dark">
   <link rel="icon" href="{{ url_for('static', filename='img/jornada.svg') }}" type="image/svg+xml">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v=build) }}">
   <script>
     // Aplica el último tema conocido antes de pintar, para evitar parpadeos.
     try {
@@ -502,9 +502,9 @@
     </form>
   </dialog>
 
-  <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/shortcuts.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/datatools.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/i18n.js', v=build) }}"></script>
+  <script src="{{ url_for('static', filename='js/app.js', v=build) }}"></script>
+  <script src="{{ url_for('static', filename='js/shortcuts.js', v=build) }}"></script>
+  <script src="{{ url_for('static', filename='js/datatools.js', v=build) }}"></script>
 </body>
 </html>
