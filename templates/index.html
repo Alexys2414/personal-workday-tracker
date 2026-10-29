@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es" data-theme="dark">
+<html lang="{{ lang }}" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -15,6 +15,8 @@
       document.documentElement.dataset.theme = t;
     } catch (e) {}
   </script>
+  <!-- Diccionario del idioma activo: la página ya llega traducida desde el servidor. -->
+  <script id="i18n-data" type="application/json">{{ i18n|tojson }}</script>
 </head>
 <body>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -26,7 +28,6 @@
       <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></symbol>
       <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
       <symbol id="i-login" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></symbol>
-      <symbol id="i-hourglass" viewBox="0 0 24 24"><path d="M6 2h12M6 22h12"/><path d="M7 2v4a5 5 0 0 0 10 0V2M7 22v-4a5 5 0 0 1 10 0v4"/></symbol>
       <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
       <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></symbol>
       <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
@@ -44,10 +45,16 @@
       <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></symbol>
       <symbol id="i-palm" viewBox="0 0 24 24"><path d="M13 8c0-2.8-2.2-5-5-5-1.7 0-3.2.8-4 2M13 8c0-2.8 2.2-5 5-5 1.7 0 3.2.8 4 2"/><path d="M13 8c-3 0-6 2-7 5M13 8c3 0 6 2 7 5"/><path d="M13 8v13M8 21h10"/></symbol>
       <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
-      <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M8 17v-5M13 17V8M18 17v-8"/></symbol>
       <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/></symbol>
-      <symbol id="i-scale" viewBox="0 0 24 24"><path d="M12 3v18M7 21h10M3 7h18"/><path d="m6 7-3 7a3 3 0 0 0 6 0zM18 7l-3 7a3 3 0 0 0 6 0z"/></symbol>
       <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15v4M17 17h4M5 3v3M3.5 4.5h3"/></symbol>
+      <symbol id="i-note" viewBox="0 0 24 24"><path d="M15.5 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5z"/><path d="M15 3v6h6"/><path d="M7 13h10M7 17h6"/></symbol>
+      <symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01M10 13h4M7 16h10"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><path d="M5 3h14"/></symbol>
+      <symbol id="i-printer" viewBox="0 0 24 24"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></symbol>
+      <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+      <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></symbol>
+      <symbol id="i-reset" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 2.6-6.4"/><path d="M3 4v5h5"/></symbol>
     </defs>
   </svg>
 
@@ -59,15 +66,17 @@
       </div>
       <div class="topbar-center">
         <span id="todayLabel" class="today-label">—</span>
-        <span class="sep">·</span>
         <span id="liveClock" class="live-clock tabular">--:--:--</span>
       </div>
       <div class="topbar-actions">
-        <button class="icon-btn" id="themeBtn" title="Cambiar tema" aria-label="Cambiar tema">
+        <button class="lang-btn" id="langBtn" title="{{ t('top.lang') }}" aria-label="{{ t('top.lang') }}" data-i18n-title="top.lang" data-i18n-aria="top.lang">
+          <svg><use href="#i-globe"/></svg><span id="langCode">{{ lang|upper }}</span>
+        </button>
+        <button class="icon-btn" id="themeBtn" title="{{ t('top.theme') }}" aria-label="{{ t('top.theme') }}" data-i18n-title="top.theme" data-i18n-aria="top.theme">
           <svg class="only-dark"><use href="#i-sun"/></svg><svg class="only-light"><use href="#i-moon"/></svg>
         </button>
-        <button class="icon-btn" id="settingsBtn" title="Ajustes" aria-label="Ajustes"><svg><use href="#i-settings"/></svg></button>
-        <button class="icon-btn" id="quitBtn" title="Cerrar Jornada (detiene el servidor)" aria-label="Cerrar Jornada"><svg><use href="#i-power"/></svg></button>
+        <button class="icon-btn" id="settingsBtn" title="{{ t('top.settings') }}" aria-label="{{ t('top.settings') }}" data-i18n-title="top.settings" data-i18n-aria="top.settings"><svg><use href="#i-settings"/></svg></button>
+        <button class="icon-btn" id="quitBtn" title="{{ t('top.quit') }}" aria-label="{{ t('top.quit') }}" data-i18n-title="top.quit" data-i18n-aria="top.quit"><svg><use href="#i-power"/></svg></button>
       </div>
     </div>
   </header>
@@ -84,7 +93,7 @@
             <g class="ring-ticks" id="ringTicks"></g>
           </svg>
           <div class="ring-center" role="timer" aria-live="off">
-            <span class="ring-label" id="countLabel">Te queda</span>
+            <span class="ring-label" id="countLabel">{{ t('count.left') }}</span>
             <span class="countdown tabular" id="countdown">--:--:--</span>
             <span class="ring-sub" id="progressText">—</span>
           </div>
@@ -92,19 +101,19 @@
 
         <div class="hero-side">
           <div class="hero-top">
-            <span class="status-pill" id="statusPill"><span class="dot"></span><span id="statusText">Cargando…</span></span>
+            <span class="status-pill" id="statusPill"><span class="dot"></span><span id="statusText">{{ t('status.loading') }}</span></span>
             <span class="mode-badge" id="modeBadge"></span>
           </div>
 
           <div class="exit-block">
-            <span class="exit-label" id="exitLabel">Puedes salir a las</span>
+            <span class="exit-label" id="exitLabel">{{ t('exit.leave_at') }}</span>
             <span class="exit-time tabular" id="exitTime">--:--</span>
             <span class="exit-note" id="exitNote"></span>
           </div>
 
           <div class="break-live" id="breakLive" hidden>
             <svg><use href="#i-coffee"/></svg>
-            <span>Descanso en curso</span>
+            <span data-i18n="breaklive.title">{{ t('breaklive.title') }}</span>
             <strong class="tabular" id="breakTimer">00:00:00</strong>
           </div>
 
@@ -115,14 +124,17 @@
 
       <aside class="card today-card">
         <div class="card-head">
-          <h2>Hoy</h2>
-          <button class="ghost-btn small" id="editTodayBtn"><svg><use href="#i-edit"/></svg>Editar</button>
+          <h2 data-i18n="today.title">{{ t('today.title') }}</h2>
+          <div class="card-head-actions">
+            <button class="icon-btn small" id="dayNoteBtn" title="{{ t('tl.day_note') }}" aria-label="{{ t('tl.day_note') }}" data-i18n-title="tl.day_note" data-i18n-aria="tl.day_note"><svg><use href="#i-note"/></svg></button>
+            <button class="ghost-btn small" id="editTodayBtn"><svg><use href="#i-edit"/></svg><span data-i18n="common.edit">{{ t('common.edit') }}</span></button>
+          </div>
         </div>
         <div class="dayline" id="dayline" aria-hidden="true"></div>
         <ul class="timeline" id="timeline"></ul>
         <div class="break-meter">
           <div class="break-meter-head">
-            <span>Descanso obligatorio</span>
+            <span data-i18n="bm.title">{{ t('bm.title') }}</span>
             <span class="tabular" id="breakMeterText">—</span>
           </div>
           <div class="meter"><span id="breakMeterBar"></span><span class="meter-opt" id="breakMeterOpt"></span></div>
@@ -131,52 +143,55 @@
       </aside>
     </section>
 
-    <section class="summary" aria-label="Resumen de hoy">
+    <section class="summary" aria-label="{{ t('sum.aria') }}" data-i18n-aria="sum.aria">
       <div class="sum-cell" data-tone="work">
-        <span class="sum-label"><i></i>Trabajado</span>
+        <span class="sum-label"><i></i><span data-i18n="sum.worked">{{ t('sum.worked') }}</span></span>
         <strong class="sum-value" id="tWorked">—</strong><span class="sum-sub" id="tWorkedSub"></span>
       </div>
       <div class="sum-cell" data-tone="ink" id="tRemainingCell">
-        <span class="sum-label"><i></i><span id="tRemainingLabel">Pendiente</span></span>
+        <span class="sum-label"><i></i><span id="tRemainingLabel">{{ t('sum.pending') }}</span></span>
         <strong class="sum-value" id="tRemaining">—</strong><span class="sum-sub" id="tRemainingSub"></span>
       </div>
       <div class="sum-cell" data-tone="break">
-        <span class="sum-label"><i></i>Descanso</span>
+        <span class="sum-label"><i></i><span data-i18n="sum.break">{{ t('sum.break') }}</span></span>
         <strong class="sum-value" id="tBreak">—</strong><span class="sum-sub" id="tBreakSub"></span>
       </div>
       <div class="sum-cell" data-tone="ink">
-        <span class="sum-label"><i></i>Entrada</span>
+        <span class="sum-label"><i></i><span data-i18n="sum.clock_in">{{ t('sum.clock_in') }}</span></span>
         <strong class="sum-value" id="tIn">—</strong><span class="sum-sub" id="tInSub"></span>
       </div>
     </section>
 
-    <section class="section">
+    <section class="section" id="statsSection" tabindex="-1">
       <div class="section-head">
-        <h2>Balance</h2>
+        <h2 data-i18n="stats.title">{{ t('stats.title') }}</h2>
       </div>
       <div class="stats-grid" id="stats" aria-busy="true"></div>
     </section>
 
-    <section class="section">
+    <section class="section" id="historySection" tabindex="-1">
       <div class="section-head">
-        <h2>Historial</h2>
-        <button class="ghost-btn" id="addDayBtn"><svg><use href="#i-plus"/></svg>Añadir jornada</button>
+        <h2 data-i18n="hist.title">{{ t('hist.title') }}</h2>
+        <div class="section-actions">
+          <button class="ghost-btn" id="dataBtn"><svg><use href="#i-download"/></svg><span data-i18n="hist.data">{{ t('hist.data') }}</span></button>
+          <button class="ghost-btn" id="addDayBtn"><svg><use href="#i-plus"/></svg><span data-i18n="hist.add">{{ t('hist.add') }}</span></button>
+        </div>
       </div>
 
       <div class="history-grid">
         <article class="card calendar-card">
           <div class="card-head">
-            <button class="icon-btn small" id="prevMonth" aria-label="Mes anterior"><svg><use href="#i-left"/></svg></button>
+            <button class="icon-btn small" id="prevMonth" aria-label="{{ t('cal.prev') }}" data-i18n-aria="cal.prev"><svg><use href="#i-left"/></svg></button>
             <h3 id="monthTitle">—</h3>
-            <button class="icon-btn small" id="nextMonth" aria-label="Mes siguiente"><svg><use href="#i-right"/></svg></button>
+            <button class="icon-btn small" id="nextMonth" aria-label="{{ t('cal.next') }}" data-i18n-aria="cal.next"><svg><use href="#i-right"/></svg></button>
           </div>
-          <div class="cal-weekdays"><span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span>S</span><span>D</span></div>
+          <div class="cal-weekdays" id="calWeekdays">{% for i in range(7) %}<span>{{ t('weekday.short.' ~ i) }}</span>{% endfor %}</div>
           <div class="cal-grid" id="calGrid"></div>
           <div class="legend">
-            <span><i class="lg green"></i>Completada</span>
-            <span><i class="lg yellow"></i>En curso o sin cerrar</span>
-            <span><i class="lg red"></i>Déficit</span>
-            <span><i class="lg gray"></i>Sin registro</span>
+            <span><i class="lg green"></i><span data-i18n="legend.done">{{ t('legend.done') }}</span></span>
+            <span><i class="lg yellow"></i><span data-i18n="legend.progress">{{ t('legend.progress') }}</span></span>
+            <span><i class="lg red"></i><span data-i18n="legend.deficit">{{ t('legend.deficit') }}</span></span>
+            <span><i class="lg gray"></i><span data-i18n="legend.none">{{ t('legend.none') }}</span></span>
           </div>
         </article>
 
@@ -186,18 +201,23 @@
       <article class="card week-card">
         <div class="card-head">
           <div class="week-title">
-            <h3>Vista semanal</h3>
+            <h3 data-i18n="week.title">{{ t('week.title') }}</h3>
             <span class="muted small" id="weekRange">—</span>
           </div>
           <div class="week-nav">
-            <button class="icon-btn small" id="prevWeek" aria-label="Semana anterior"><svg><use href="#i-left"/></svg></button>
-            <button class="ghost-btn small" id="thisWeek">Hoy</button>
-            <button class="icon-btn small" id="nextWeek" aria-label="Semana siguiente"><svg><use href="#i-right"/></svg></button>
+            <button class="icon-btn small" id="prevWeek" aria-label="{{ t('week.prev') }}" data-i18n-aria="week.prev"><svg><use href="#i-left"/></svg></button>
+            <button class="ghost-btn small" id="thisWeek" data-i18n="week.today">{{ t('week.today') }}</button>
+            <button class="icon-btn small" id="nextWeek" aria-label="{{ t('week.next') }}" data-i18n-aria="week.next"><svg><use href="#i-right"/></svg></button>
           </div>
         </div>
         <div class="table-wrap">
           <table class="week-table">
-            <thead><tr><th>Día</th><th class="hide-sm">Entrada</th><th class="hide-sm">Salida</th><th class="hide-sm">Descanso</th><th>Trabajado</th><th class="hide-xs">Objetivo</th><th class="num">Balance</th></tr></thead>
+            <thead><tr>
+              <th data-i18n="th.day">{{ t('th.day') }}</th><th class="hide-sm" data-i18n="th.in">{{ t('th.in') }}</th>
+              <th class="hide-sm" data-i18n="th.out">{{ t('th.out') }}</th><th class="hide-sm" data-i18n="th.break">{{ t('th.break') }}</th>
+              <th data-i18n="th.worked">{{ t('th.worked') }}</th><th class="hide-xs" data-i18n="th.target">{{ t('th.target') }}</th>
+              <th class="num" data-i18n="th.balance">{{ t('th.balance') }}</th>
+            </tr></thead>
             <tbody id="weekBody"></tbody>
             <tfoot id="weekFoot"></tfoot>
           </table>
@@ -205,15 +225,15 @@
       </article>
     </section>
 
-    <footer class="foot muted small">Tus fichajes se guardan solo en este equipo, en la carpeta <code>data/</code>.</footer>
+    <footer class="foot muted small" data-i18n-html="foot.local">{{ t('foot.local')|safe }}</footer>
   </main>
 
   <div class="toasts" id="toasts" aria-live="polite"></div>
 
   <div class="closed-screen" id="closedScreen" hidden>
     <span class="brand-mark"><img src="{{ url_for('static', filename='img/jornada.svg') }}" alt=""></span>
-    <h2>Jornada se ha cerrado</h2>
-    <p class="muted">Todos los datos están guardados. Ya puedes cerrar esta pestaña.<br>Para volver a abrirla, ejecuta <code>iniciar.bat</code> o <code>iniciar.sh</code>.</p>
+    <h2 data-i18n="closed.title">{{ t('closed.title') }}</h2>
+    <p class="muted" data-i18n-html="closed.text">{{ t('closed.text')|safe }}</p>
   </div>
 
   <!-- Editor de jornada -->
@@ -221,114 +241,247 @@
     <form method="dialog" id="dayForm" novalidate>
       <header class="modal-head">
         <div>
-          <h3 id="dayDialogTitle">Editar jornada</h3>
+          <h3 id="dayDialogTitle">{{ t('ed.edit') }}</h3>
           <span class="muted small" id="dayDialogSub"></span>
         </div>
-        <button type="button" class="icon-btn small" data-close aria-label="Cerrar"><svg><use href="#i-x"/></svg></button>
+        <button type="button" class="icon-btn small" data-close aria-label="{{ t('common.close') }}" data-i18n-aria="common.close"><svg><use href="#i-x"/></svg></button>
       </header>
       <div class="modal-body">
         <div class="form-row">
-          <label class="field"><span>Fecha</span><input type="date" id="fDate" required></label>
-          <div class="field"><span>Modalidad</span>
+          <label class="field"><span data-i18n="ed.date">{{ t('ed.date') }}</span><input type="date" id="fDate" required></label>
+          <div class="field"><span data-i18n="ed.mode">{{ t('ed.mode') }}</span>
             <div class="segmented" id="fMode">
-              <button type="button" data-value="office"><svg><use href="#i-building"/></svg>Oficina</button>
-              <button type="button" data-value="remote"><svg><use href="#i-home"/></svg>Teletrabajo</button>
-              <button type="button" data-value="off"><svg><use href="#i-palm"/></svg>Libre</button>
+              <button type="button" data-value="office"><svg><use href="#i-building"/></svg><span data-i18n="mode.office">{{ t('mode.office') }}</span></button>
+              <button type="button" data-value="remote"><svg><use href="#i-home"/></svg><span data-i18n="mode.remote">{{ t('mode.remote') }}</span></button>
+              <button type="button" data-value="off"><svg><use href="#i-palm"/></svg><span data-i18n="mode.off">{{ t('mode.off') }}</span></button>
             </div>
           </div>
         </div>
-        <label class="field"><span>Perfil de horario</span>
+        <label class="field"><span data-i18n="ed.profile">{{ t('ed.profile') }}</span>
           <select id="fProfile"></select>
         </label>
         <div class="form-row">
-          <label class="field"><span>Entrada</span><input type="time" id="fIn"></label>
-          <label class="field"><span>Salida <em class="muted">(vacía si sigue abierta)</em></span><input type="time" id="fOut"></label>
+          <label class="field"><span data-i18n="ed.in">{{ t('ed.in') }}</span><input type="time" id="fIn"></label>
+          <label class="field"><span><span data-i18n="ed.out">{{ t('ed.out') }}</span> <em data-i18n="ed.out_hint">{{ t('ed.out_hint') }}</em></span><input type="time" id="fOut"></label>
         </div>
 
         <div class="field">
-          <span>Descansos</span>
+          <span data-i18n="ed.breaks">{{ t('ed.breaks') }}</span>
           <div class="breaks-list" id="fBreaks"></div>
-          <button type="button" class="ghost-btn small" id="fAddBreak"><svg><use href="#i-plus"/></svg>Añadir descanso</button>
+          <button type="button" class="ghost-btn small" id="fAddBreak"><svg><use href="#i-plus"/></svg><span data-i18n="ed.add_break">{{ t('ed.add_break') }}</span></button>
         </div>
 
         <div class="form-row three">
-          <label class="field"><span>Objetivo efectivo</span><input type="text" id="fTarget" inputmode="numeric" placeholder="8:30" pattern="\d{1,2}:\d{2}"></label>
-          <label class="field"><span>Descanso mínimo (min)</span><input type="number" id="fMinBreak" min="0" max="600" step="1"></label>
-          <label class="field"><span>Descanso opcional (min)</span><input type="number" id="fOptBreak" min="0" max="600" step="1"></label>
+          <label class="field"><span data-i18n="ed.target">{{ t('ed.target') }}</span><input type="text" id="fTarget" inputmode="numeric" placeholder="8:30" pattern="\d{1,2}:\d{2}"></label>
+          <label class="field"><span data-i18n="ed.min_break">{{ t('ed.min_break') }}</span><input type="number" id="fMinBreak" min="0" max="600" step="1"></label>
+          <label class="field"><span data-i18n="ed.opt_break">{{ t('ed.opt_break') }}</span><input type="number" id="fOptBreak" min="0" max="600" step="1"></label>
         </div>
 
-        <label class="field"><span>Observaciones</span><textarea id="fNotes" rows="2" maxlength="2000" placeholder="Opcional"></textarea></label>
+        <label class="field"><span data-i18n="ed.notes">{{ t('ed.notes') }}</span><textarea id="fNotes" rows="2" maxlength="2000" placeholder="{{ t('ed.notes_ph') }}" data-i18n-placeholder="ed.notes_ph"></textarea></label>
 
         <div class="preview" id="fPreview"></div>
-        <div class="form-error" id="fError" hidden></div>
+        <div class="form-error" id="fError" role="alert" hidden></div>
       </div>
       <footer class="modal-foot">
-        <button type="button" class="danger-btn" id="fDelete"><svg><use href="#i-trash"/></svg>Eliminar</button>
+        <button type="button" class="danger-btn" id="fDelete"><svg><use href="#i-trash"/></svg><span data-i18n="common.delete">{{ t('common.delete') }}</span></button>
         <span class="spacer"></span>
-        <button type="button" class="ghost-btn" data-close>Cancelar</button>
-        <button type="submit" class="primary-btn" id="fSave">Guardar</button>
+        <button type="button" class="ghost-btn" data-close data-i18n="common.cancel">{{ t('common.cancel') }}</button>
+        <button type="submit" class="primary-btn" id="fSave" data-i18n="common.save">{{ t('common.save') }}</button>
       </footer>
     </form>
   </dialog>
 
-  <!-- Ajustes -->
+  <!-- Nota rápida (del día o de un descanso) -->
+  <dialog class="modal modal-sm note-modal" id="noteDialog">
+    <form method="dialog" id="noteForm" novalidate>
+      <header class="modal-head">
+        <div>
+          <h3 id="noteTitle">{{ t('note.day_title') }}</h3>
+          <span class="muted small" id="noteSub"></span>
+        </div>
+        <button type="button" class="icon-btn small" data-close aria-label="{{ t('common.close') }}" data-i18n-aria="common.close"><svg><use href="#i-x"/></svg></button>
+      </header>
+      <div class="modal-body">
+        <div class="note-field">
+          <textarea id="noteText" rows="3" placeholder="{{ t('note.ph') }}" data-i18n-placeholder="note.ph"></textarea>
+          <span class="note-count tabular" id="noteCount">0/200</span>
+        </div>
+        <div class="note-chips" id="noteChips"></div>
+        <p class="muted small note-hint" data-i18n="note.hint">{{ t('note.hint') }}</p>
+        <div class="form-error" id="noteError" role="alert" hidden></div>
+      </div>
+      <footer class="modal-foot">
+        <button type="button" class="danger-btn" id="noteDelete"><svg><use href="#i-trash"/></svg><span data-i18n="note.delete">{{ t('note.delete') }}</span></button>
+        <span class="spacer"></span>
+        <button type="button" class="ghost-btn" data-close data-i18n="common.cancel">{{ t('common.cancel') }}</button>
+        <button type="submit" class="primary-btn" id="noteSave" data-i18n="common.save">{{ t('common.save') }}</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Ajustes (pestañas) -->
   <dialog class="modal modal-wide" id="settingsDialog">
     <form method="dialog" id="settingsForm" novalidate>
       <header class="modal-head">
-        <div><h3>Ajustes</h3><span class="muted small">Los cambios no alteran las jornadas ya cerradas.</span></div>
-        <button type="button" class="icon-btn small" data-close aria-label="Cerrar"><svg><use href="#i-x"/></svg></button>
+        <div><h3 data-i18n="set.title">{{ t('set.title') }}</h3><span class="muted small" data-i18n="set.subtitle">{{ t('set.subtitle') }}</span></div>
+        <button type="button" class="icon-btn small" data-close aria-label="{{ t('common.close') }}" data-i18n-aria="common.close"><svg><use href="#i-x"/></svg></button>
       </header>
+      <nav class="tabs" role="tablist" id="settingsTabs">
+        <button type="button" role="tab" data-tab="schedule" aria-selected="true"><svg><use href="#i-clock"/></svg><span data-i18n="tab.schedule">{{ t('tab.schedule') }}</span></button>
+        <button type="button" role="tab" data-tab="shortcuts" aria-selected="false"><svg><use href="#i-keyboard"/></svg><span data-i18n="tab.shortcuts">{{ t('tab.shortcuts') }}</span></button>
+        <button type="button" role="tab" data-tab="data" aria-selected="false"><svg><use href="#i-file"/></svg><span data-i18n="tab.data">{{ t('tab.data') }}</span></button>
+        <button type="button" role="tab" data-tab="appearance" aria-selected="false"><svg><use href="#i-sun"/></svg><span data-i18n="tab.appearance">{{ t('tab.appearance') }}</span></button>
+        <span class="tab-indicator" aria-hidden="true"></span>
+      </nav>
       <div class="modal-body">
-        <h4>Perfiles de horario</h4>
-        <div class="table-wrap">
-          <table class="settings-table">
-            <thead><tr><th>Perfil</th><th>Entrada ref.</th><th>Salida ref.</th><th>Efectivo</th><th>Desc. mín.</th><th>Desc. opc.</th></tr></thead>
-            <tbody id="sProfiles"></tbody>
-          </table>
-        </div>
-        <p class="muted small">Efectivo en formato <code>H:MM</code>. Descansos en minutos. El descanso máximo habitual es la suma de mínimo + opcional.</p>
+        <!-- Horario -->
+        <section class="tab-panel" data-panel="schedule" role="tabpanel">
+          <h4 data-i18n="set.profiles">{{ t('set.profiles') }}</h4>
+          <div class="table-wrap">
+            <table class="settings-table">
+              <thead><tr>
+                <th data-i18n="th.profile">{{ t('th.profile') }}</th><th data-i18n="th.ref_in">{{ t('th.ref_in') }}</th><th data-i18n="th.ref_out">{{ t('th.ref_out') }}</th>
+                <th data-i18n="th.effective">{{ t('th.effective') }}</th><th data-i18n="th.min">{{ t('th.min') }}</th><th data-i18n="th.opt">{{ t('th.opt') }}</th>
+              </tr></thead>
+              <tbody id="sProfiles"></tbody>
+            </table>
+          </div>
+          <p class="muted small" data-i18n-html="set.profiles_hint">{{ t('set.profiles_hint')|safe }}</p>
 
-        <h4>Semana habitual</h4>
-        <div class="table-wrap">
-          <table class="settings-table">
-            <thead><tr><th>Día</th><th>Laborable</th><th>Perfil</th><th>Modalidad</th></tr></thead>
-            <tbody id="sWeekdays"></tbody>
-          </table>
-        </div>
+          <h4 data-i18n="set.week">{{ t('set.week') }}</h4>
+          <div class="table-wrap">
+            <table class="settings-table">
+              <thead><tr><th data-i18n="th.day">{{ t('th.day') }}</th><th data-i18n="th.workday">{{ t('th.workday') }}</th><th data-i18n="th.profile">{{ t('th.profile') }}</th><th data-i18n="th.mode">{{ t('th.mode') }}</th></tr></thead>
+              <tbody id="sWeekdays"></tbody>
+            </table>
+          </div>
 
-        <h4>Intensivo de verano por fechas</h4>
-        <div class="periods" id="sPeriods"></div>
-        <div class="period-foot">
-          <button type="button" class="ghost-btn small" id="sAddPeriod"><svg><use href="#i-plus"/></svg>Añadir período</button>
-          <div class="field inline"><span>Se aplica a</span><div class="day-toggles" id="sSummerDays"></div></div>
-        </div>
-        <p class="muted small">Dentro de estas fechas, los días laborables marcados usan el perfil «Intensivo de verano». Prioridad: perfil elegido a mano en una jornada &gt; período de verano &gt; semana habitual. Las jornadas pasadas conservan su perfil.</p>
+          <h4 data-i18n="set.summer">{{ t('set.summer') }}</h4>
+          <div class="periods" id="sPeriods"></div>
+          <div class="period-foot">
+            <button type="button" class="ghost-btn small" id="sAddPeriod"><svg><use href="#i-plus"/></svg><span data-i18n="set.add_period">{{ t('set.add_period') }}</span></button>
+            <div class="field inline"><span data-i18n="set.applies">{{ t('set.applies') }}</span><div class="day-toggles" id="sSummerDays"></div></div>
+          </div>
+          <p class="muted small" data-i18n-html="set.summer_hint">{{ t('set.summer_hint')|safe }}</p>
+        </section>
 
-        <h4>Apariencia</h4>
-        <div class="form-row three">
-          <div class="field"><span>Tema</span>
-            <div class="segmented" id="sTheme">
-              <button type="button" data-value="system">Sistema</button>
-              <button type="button" data-value="light">Claro</button>
-              <button type="button" data-value="dark">Oscuro</button>
-            </div></div>
-          <div class="field"><span>Formato de hora</span>
-            <div class="segmented" id="sTimeFormat">
-              <button type="button" data-value="24h">17:23</button>
-              <button type="button" data-value="12h">5:23 p. m.</button>
-            </div></div>
-          <div class="field"><span>Formato de duración</span>
-            <div class="segmented" id="sDurFormat">
-              <button type="button" data-value="hms">02:34:18</button>
-              <button type="button" data-value="hm">2 h 34 min</button>
-            </div></div>
-        </div>
-        <div class="form-error" id="sError" hidden></div>
+        <!-- Atajos -->
+        <section class="tab-panel" data-panel="shortcuts" role="tabpanel" hidden>
+          <div class="panel-intro">
+            <span class="panel-icon"><svg><use href="#i-keyboard"/></svg></span>
+            <div><h4 data-i18n="sc.title">{{ t('sc.title') }}</h4><p class="muted small" data-i18n="sc.intro">{{ t('sc.intro') }}</p></div>
+          </div>
+          <ul class="sc-list" id="scList"></ul>
+          <div class="sc-foot">
+            <button type="button" class="ghost-btn small" id="scRestore"><svg><use href="#i-reset"/></svg><span data-i18n="sc.restore">{{ t('sc.restore') }}</span></button>
+            <span class="muted small" data-i18n="sc.save_hint">{{ t('sc.save_hint') }}</span>
+          </div>
+        </section>
+
+        <!-- Datos: exportar e importar -->
+        <section class="tab-panel" data-panel="data" role="tabpanel" hidden>
+          <div class="data-grid">
+            <div class="data-card">
+              <div class="panel-intro">
+                <span class="panel-icon"><svg><use href="#i-download"/></svg></span>
+                <div><h4 data-i18n="data.export">{{ t('data.export') }}</h4><p class="muted small" data-i18n="data.export_hint">{{ t('data.export_hint') }}</p></div>
+              </div>
+              <div class="field"><span data-i18n="data.scope">{{ t('data.scope') }}</span>
+                <div class="scope-list" id="exScope">
+                  <label><input type="radio" name="exScope" value="all" checked><span data-i18n="scope.all">{{ t('scope.all') }}</span></label>
+                  <label><input type="radio" name="exScope" value="week"><span data-i18n="scope.week">{{ t('scope.week') }}</span></label>
+                  <label><input type="radio" name="exScope" value="month"><span><span data-i18n="scope.month">{{ t('scope.month') }}</span> <em class="muted" id="exMonthName"></em></span></label>
+                  <label><input type="radio" name="exScope" value="range"><span data-i18n="scope.range">{{ t('scope.range') }}</span></label>
+                </div>
+              </div>
+              <div class="form-row ex-range" id="exRange" hidden>
+                <label class="field"><span data-i18n="data.from">{{ t('data.from') }}</span><input type="date" id="exFrom"></label>
+                <label class="field"><span data-i18n="data.to">{{ t('data.to') }}</span><input type="date" id="exTo"></label>
+              </div>
+              <div class="form-error" id="exError" role="alert" hidden></div>
+              <div class="data-actions">
+                <button type="button" class="primary-btn" id="exCsv"><svg><use href="#i-download"/></svg><span data-i18n="data.csv">{{ t('data.csv') }}</span></button>
+                <button type="button" class="ghost-btn" id="exPdf"><svg><use href="#i-printer"/></svg><span data-i18n="data.pdf">{{ t('data.pdf') }}</span></button>
+              </div>
+            </div>
+
+            <div class="data-card">
+              <div class="panel-intro">
+                <span class="panel-icon"><svg><use href="#i-upload"/></svg></span>
+                <div><h4 data-i18n="data.import">{{ t('data.import') }}</h4><p class="muted small" data-i18n="data.import_hint">{{ t('data.import_hint') }}</p></div>
+              </div>
+              <label class="dropzone" id="imDrop">
+                <input type="file" id="imFile" accept=".csv,text/csv">
+                <svg><use href="#i-file"/></svg>
+                <strong data-i18n="data.choose">{{ t('data.choose') }}</strong>
+                <span class="muted small" data-i18n="data.drop">{{ t('data.drop') }}</span>
+              </label>
+              <div class="form-error" id="imError" role="alert" hidden></div>
+            </div>
+          </div>
+
+          <div class="import-preview" id="imPreview" hidden>
+            <div class="im-summary" id="imSummary"></div>
+            <div class="im-dup" id="imDupMode" hidden>
+              <span class="small" data-i18n="imp.dup_mode">{{ t('imp.dup_mode') }}</span>
+              <div class="segmented" id="imDupSeg">
+                <button type="button" data-value="skip" class="active"><span data-i18n="imp.dup_skip">{{ t('imp.dup_skip') }}</span></button>
+                <button type="button" data-value="overwrite"><span data-i18n="imp.dup_overwrite">{{ t('imp.dup_overwrite') }}</span></button>
+              </div>
+            </div>
+            <div class="table-wrap im-table-wrap">
+              <table class="im-table">
+                <thead><tr>
+                  <th class="im-check"><input type="checkbox" id="imAll" aria-label="{{ t('imp.select_all') }}" data-i18n-aria="imp.select_all"></th>
+                  <th data-i18n="imp.col_date">{{ t('imp.col_date') }}</th><th data-i18n="imp.col_status">{{ t('imp.col_status') }}</th><th data-i18n="imp.col_detail">{{ t('imp.col_detail') }}</th>
+                </tr></thead>
+                <tbody id="imRows"></tbody>
+              </table>
+            </div>
+            <p class="muted small" id="imErrNote" hidden data-i18n="imp.errors_skipped">{{ t('imp.errors_skipped') }}</p>
+            <div class="data-actions">
+              <button type="button" class="ghost-btn" id="imCancel" data-i18n="imp.cancel">{{ t('imp.cancel') }}</button>
+              <button type="button" class="primary-btn" id="imConfirm"></button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Apariencia e idioma -->
+        <section class="tab-panel" data-panel="appearance" role="tabpanel" hidden>
+          <div class="form-row two-wide">
+            <div class="field"><span data-i18n="set.language">{{ t('set.language') }}</span>
+              <div class="segmented" id="sLang">
+                <button type="button" data-value="es">Español</button>
+                <button type="button" data-value="en">English</button>
+              </div>
+              <span class="muted small" data-i18n="set.language_hint">{{ t('set.language_hint') }}</span>
+            </div>
+            <div class="field"><span data-i18n="set.theme">{{ t('set.theme') }}</span>
+              <div class="segmented" id="sTheme">
+                <button type="button" data-value="system" data-i18n="theme.system">{{ t('theme.system') }}</button>
+                <button type="button" data-value="light" data-i18n="theme.light">{{ t('theme.light') }}</button>
+                <button type="button" data-value="dark" data-i18n="theme.dark">{{ t('theme.dark') }}</button>
+              </div></div>
+          </div>
+          <div class="form-row two-wide">
+            <div class="field"><span data-i18n="set.time_fmt">{{ t('set.time_fmt') }}</span>
+              <div class="segmented" id="sTimeFormat">
+                <button type="button" data-value="24h">17:23</button>
+                <button type="button" data-value="12h">5:23 pm</button>
+              </div></div>
+            <div class="field"><span data-i18n="set.dur_fmt">{{ t('set.dur_fmt') }}</span>
+              <div class="segmented" id="sDurFormat">
+                <button type="button" data-value="hms">02:34:18</button>
+                <button type="button" data-value="hm">2 h 34 min</button>
+              </div></div>
+          </div>
+        </section>
+        <div class="form-error" id="sError" role="alert" hidden></div>
       </div>
       <footer class="modal-foot">
         <span class="spacer"></span>
-        <button type="button" class="ghost-btn" data-close>Cancelar</button>
-        <button type="submit" class="primary-btn">Guardar ajustes</button>
+        <button type="button" class="ghost-btn" data-close data-i18n="common.cancel">{{ t('common.cancel') }}</button>
+        <button type="submit" class="primary-btn" id="sSave" data-i18n="set.save">{{ t('set.save') }}</button>
       </footer>
     </form>
   </dialog>
@@ -338,17 +491,20 @@
     <form method="dialog">
       <div class="modal-body confirm-body">
         <span class="confirm-icon" id="confirmIcon"><svg><use href="#i-alert"/></svg></span>
-        <h3 id="confirmTitle">¿Seguro?</h3>
+        <h3 id="confirmTitle">{{ t('common.sure') }}</h3>
         <p class="muted" id="confirmText"></p>
       </div>
       <footer class="modal-foot">
         <span class="spacer"></span>
-        <button value="cancel" class="ghost-btn">Cancelar</button>
-        <button value="ok" class="primary-btn" id="confirmOk">Confirmar</button>
+        <button value="cancel" class="ghost-btn" data-i18n="common.cancel">{{ t('common.cancel') }}</button>
+        <button value="ok" class="primary-btn" id="confirmOk">{{ t('common.confirm') }}</button>
       </footer>
     </form>
   </dialog>
 
+  <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
   <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/shortcuts.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/datatools.js') }}"></script>
 </body>
 </html>

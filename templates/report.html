@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ t('report.title') }} · {{ period }}</title>
+  <link rel="icon" href="{{ url_for('static', filename='img/jornada.svg') }}" type="image/svg+xml">
+  <style>
+    @font-face { font-family: "Plus Jakarta Sans"; font-weight: 400 800; src: url("{{ url_for('static', filename='fonts/plus-jakarta-sans-latin.woff2') }}") format("woff2"); }
+    :root { --ink: #13231f; --ink-2: #3a4b46; --muted: #5f6f6a; --line: #dfe5e2; --soft: #f3f6f4;
+            --work: #0f766e; --break: #b5561a; --bad: #c03636; --gold: #946a00; }
+    @page { size: A4; margin: 14mm 12mm 16mm; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Plus Jakarta Sans", system-ui, sans-serif; color: var(--ink); background: #e9eeeb;
+           font-size: 10.5pt; line-height: 1.45; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .sheet { width: 210mm; min-height: 297mm; margin: 24px auto; background: #fff; padding: 14mm 12mm 16mm;
+             box-shadow: 0 20px 60px -20px rgba(19,35,31,.35); border-radius: 6px; }
+    .toolbar { position: sticky; top: 0; z-index: 2; display: flex; justify-content: center; gap: 12px; align-items: center;
+               padding: 12px; background: rgba(233,238,235,.92); backdrop-filter: blur(8px); font-size: 13px; color: var(--ink-2); }
+    .toolbar button { font: inherit; font-weight: 700; border: 0; border-radius: 12px; padding: 10px 18px; background: var(--ink); color: #fff; cursor: pointer; }
+    .toolbar button:active { transform: scale(.97); }
+    header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding-bottom: 12px; border-bottom: 2px solid var(--ink); }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand img { width: 34px; height: 34px; }
+    h1 { margin: 0; font-size: 19pt; letter-spacing: -0.02em; }
+    .period { font-size: 11pt; color: var(--ink-2); font-weight: 600; margin-top: 2px; }
+    .meta { text-align: right; font-size: 8.5pt; color: var(--muted); }
+    .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 14px 0 16px; }
+    .card { background: var(--soft); border-radius: 10px; padding: 9px 11px; }
+    .card span { display: block; font-size: 8.5pt; color: var(--muted); font-weight: 600; }
+    .card strong { font-size: 14pt; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+    .card.bal { background: color-mix(in srgb, var(--work) 9%, #fff); }
+    .card.bal.neg { background: color-mix(in srgb, var(--bad) 9%, #fff); }
+    table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+    thead th { text-align: left; font-size: 8pt; color: var(--muted); font-weight: 700; padding: 6px 6px; border-bottom: 1.5px solid var(--ink); }
+    tbody td { padding: 6px; border-bottom: 1px solid var(--line); vertical-align: top; font-size: 9.5pt; }
+    tbody tr { break-inside: avoid; }
+    tbody tr:nth-child(even) td { background: #fafcfb; }
+    .num { text-align: right; white-space: nowrap; }
+    .day { font-weight: 700; white-space: nowrap; }
+    .day small { display: block; font-weight: 500; color: var(--muted); font-size: 8pt; }
+    .pos { color: var(--work); font-weight: 700; } .neg { color: var(--bad); font-weight: 700; } .pend { color: var(--break); }
+    .breaks { color: var(--ink-2); font-size: 8.5pt; }
+    .note { display: block; color: var(--muted); font-size: 8pt; font-style: italic; }
+    tfoot td { padding: 8px 6px; font-weight: 800; border-top: 2px solid var(--ink); }
+    .empty { text-align: center; color: var(--muted); padding: 40px 0; }
+    .open-note { margin: 8px 0 0; font-size: 8.5pt; color: var(--muted); }
+    footer { margin-top: 18px; font-size: 8pt; color: var(--muted); display: flex; justify-content: space-between; }
+    @media print {
+      body { background: #fff; }
+      .toolbar { display: none; }
+      .sheet { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; border-radius: 0; }
+      thead { display: table-header-group; }
+    }
+    @media (max-width: 820px) { .sheet { width: auto; margin: 0; border-radius: 0; padding: 18px; } .summary { grid-template-columns: repeat(2, 1fr); } }
+  </style>
+</head>
+<body>
+  <div class="toolbar"><span>{{ t('report.print_hint') }}</span><button onclick="window.print()">{{ t('report.print') }}</button></div>
+  <main class="sheet">
+    <header>
+      <div>
+        <div class="brand"><img src="{{ url_for('static', filename='img/jornada.svg') }}" alt=""><h1>{{ t('report.title') }}</h1></div>
+        <div class="period">{{ period }}</div>
+      </div>
+      <div class="meta">Jornada<br>{{ t('report.generated', date=generated) }}</div>
+    </header>
+
+    <section class="summary">
+      <div class="card"><span>{{ t('report.days') }}</span><strong>{{ summary.days }}</strong></div>
+      <div class="card"><span>{{ t('report.worked') }}</span><strong>{{ summary.worked }}</strong></div>
+      <div class="card"><span>{{ t('report.target') }}</span><strong>{{ summary.target }}</strong></div>
+      <div class="card bal {{ 'neg' if summary.balance_s < 0 else '' }}"><span>{{ t('report.balance') }}</span><strong class="{{ summary.balance_cls }}">{{ summary.balance }}</strong></div>
+      <div class="card"><span>{{ t('report.breaks') }}</span><strong>{{ summary.breaks }}</strong></div>
+      <div class="card"><span>{{ t('report.plus') }}</span><strong class="pos">{{ summary.plus }}</strong></div>
+      <div class="card"><span>{{ t('report.minus') }}</span><strong class="neg">{{ summary.minus }}</strong></div>
+      <div class="card"><span>{{ t('report.avg') }}</span><strong>{{ summary.avg }}</strong></div>
+    </section>
+
+    {% if rows %}
+    <table>
+      <thead><tr>
+        <th>{{ t('th.day') }}</th><th>{{ t('report.in_out') }}</th><th>{{ t('report.breaks') }}</th>
+        <th class="num">{{ t('report.worked') }}</th><th class="num">{{ t('report.target') }}</th><th class="num">{{ t('report.balance') }}</th>
+      </tr></thead>
+      <tbody>
+      {% for r in rows %}
+        <tr>
+          <td class="day">{{ r.date }}<small>{{ r.weekday }} · {{ r.mode }}{% if r.profile %} · {{ r.profile }}{% endif %}</small></td>
+          <td>{{ r.in_out }}{% if r.notes %}<span class="note">{{ r.notes }}</span>{% endif %}</td>
+          <td class="breaks">{% for b in r.breaks %}{{ b.range }}{% if b.note %} <em>({{ b.note }})</em>{% endif %}{% if not loop.last %}<br>{% endif %}{% else %}—{% endfor %}</td>
+          <td class="num">{{ r.worked }}</td>
+          <td class="num">{{ r.target }}</td>
+          <td class="num {{ r.balance_cls }}">{{ r.balance }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+      <tfoot><tr>
+        <td colspan="3">{{ t('week.total') }}</td><td class="num">{{ summary.worked }}</td><td class="num">{{ summary.target }}</td>
+        <td class="num {{ summary.balance_cls }}">{{ summary.balance }}</td>
+      </tr></tfoot>
+    </table>
+    {% if summary.has_open %}<p class="open-note">{{ t('report.open_note') }}</p>{% endif %}
+    {% else %}
+      <p class="empty">{{ t('report.empty') }}</p>
+    {% endif %}
+
+    <footer><span>{{ t('report.disclaimer') }}</span><span>{{ period }}</span></footer>
+  </main>
+</body>
+</html>

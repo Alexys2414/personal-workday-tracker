@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import json
+import shutil
 import socket
 import sys
 import threading
@@ -26,9 +27,11 @@ for _path in (BASE_DIR, BASE_DIR / "vendor"):
 if sys.version_info < (3, 10):
     sys.exit("Jornada necesita Python 3.10 o superior (tienes %d.%d)." % sys.version_info[:2])
 
-from flask import Flask, abort, jsonify, render_template, request  # noqa: E402
+from flask import Flask, Response, abort, jsonify, render_template, request  # noqa: E402
 
 import core  # noqa: E402
+import csvio  # noqa: E402
+import i18n  # noqa: E402
 from storage import JsonStore  # noqa: E402
 
 APP_ID = "jornada"
@@ -70,8 +73,22 @@ def create_app(data_dir: str | Path | None = None,
     def parse_date(value: str) -> date:
         try:
             return date.fromisoformat(value)
-        except ValueError:
-            raise core.ValidationError(f"Fecha no válida: {value}")
+        except (TypeError, ValueError):
+            raise core.ValidationError("err.bad_date", label="@label.date", value=value)
+
+    def lang() -> str:
+        return load_settings().get("language", i18n.DEFAULT)
+
+    def tr(key: str, **params) -> str:
+        return i18n.tr(lang(), key, **params)
+
+    def date_range(days: dict):
+        """Rango ?from=&to= (ISO). Sin parámetros: todo el historial."""
+        start = parse_date(request.args["from"]) if request.args.get("from") else None
+        end = parse_date(request.args["to"]) if request.args.get("to") else None
+        if start and end and end < start:
+            raise core.ValidationError("err.bad_range")
+        return start, end
 
     def compute(dates, days, settings, current):
         return [core.compute_day(d, days.get(d.isoformat()), settings, current) for d in dates]
@@ -95,15 +112,18 @@ def create_app(data_dir: str | Path | None = None,
 
     @app.errorhandler(core.ValidationError)
     def _bad_request(exc):
-        return jsonify(error=str(exc)), 400
+        return jsonify(error=exc.message(lang()), code=exc.code), 400
 
     @app.errorhandler(core.Conflict)
     def _conflict(exc):
-        return jsonify(error=str(exc)), 409
+        return jsonify(error=exc.message(lang()), code=exc.code), 409
 
     @app.get("/")
     def index():
-        return render_template("index.html")
+        # La página llega ya traducida: sin parpadeos al cargar en otro idioma.
+        code = lang()
+        return render_template("index.html", lang=code, i18n=i18n.catalog(code),
+                               t=lambda key, **kw: i18n.tr(code, key, **kw))
 
     @app.get("/api/state")
     def state():
@@ -162,7 +182,7 @@ def create_app(data_dir: str | Path | None = None,
             before = core.compute_day(today, days.get(key), settings, current)["status"]
             # Protección frente a doble clic: si el estado ya cambió, no se repite.
             if body.get("expect") and body["expect"] != before:
-                raise core.Conflict("El estado de la jornada ya había cambiado. Se ha actualizado la vista.")
+                raise core.Conflict("conflict.state_changed")
             days[key] = core.apply_action(action, today, days.get(key), settings, current)
             save_days(days)
             return jsonify(today=core.compute_day(today, days[key], settings, current))
@@ -170,7 +190,7 @@ def create_app(data_dir: str | Path | None = None,
     @app.get("/api/month/<int:year>-<int:month>")
     def month_view(year: int, month: int):
         if not 1 <= month <= 12 or not 2000 <= year <= 2100:
-            raise core.ValidationError("Mes no válido.")
+            raise core.ValidationError("err.bad_month")
         current = now()
         return jsonify(period(core.month_dates(year, month), load_days(), load_settings(), current))
 
@@ -203,9 +223,86 @@ def create_app(data_dir: str | Path | None = None,
         with lock:
             days = load_days()
             if days.pop(d.isoformat(), None) is None:
-                return jsonify(error="No hay ningún registro en esa fecha."), 404
+                return jsonify(error=tr("err.not_found")), 404
             save_days(days)
         return jsonify(ok=True)
+
+    @app.post("/api/days/<day>/note")
+    def put_note(day: str):
+        """Nota del día (target='day') o de un descanso (target=índice). No toca tiempos."""
+        d = parse_date(day)
+        body = request.get_json(silent=True) or {}
+        with lock:
+            current = now()
+            settings = load_settings()
+            days = load_days()
+            record = days.get(d.isoformat()) or core.new_record(d, settings)
+            days[d.isoformat()] = core.set_note(record, body.get("target"), body.get("text"))
+            save_days(days)
+            return jsonify(core.compute_day(d, days[d.isoformat()], settings, current))
+
+    # ------------------------------------------------------ exportación
+
+    @app.get("/api/export.csv")
+    def export_csv():
+        days = load_days()
+        start, end = date_range(days)
+        text = csvio.export_csv(days, load_settings(), lang(), now(), start, end)
+        name = f"jornada_{start or 'inicio'}_{end or 'hoy'}.csv" if (start or end) else "jornada_historial.csv"
+        return Response(text, mimetype="text/csv; charset=utf-8",
+                        headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+    @app.get("/report")
+    def report():
+        days = load_days()
+        start, end = date_range(days)
+        code = lang()
+        return render_template("report.html", lang=code, t=lambda key, **kw: i18n.tr(code, key, **kw),
+                               **report_context(days, load_settings(), code, now(), start, end))
+
+    # ------------------------------------------------------- importación
+
+    @app.post("/api/import/preview")
+    def import_preview():
+        body = request.get_json(silent=True) or {}
+        code = lang()
+        text = csvio.decode_upload(body.get("file", ""), code)
+        result = csvio.parse_import(text, load_days(), load_settings(), now(), code)
+        result.pop("records")
+        return jsonify(result)
+
+    @app.post("/api/import/commit")
+    def import_commit():
+        body = request.get_json(silent=True) or {}
+        code = lang()
+        text = csvio.decode_upload(body.get("file", ""), code)
+        with lock:
+            days = load_days()
+            # Si los datos cambiaron desde la vista previa, se repite la revisión.
+            if body.get("fingerprint") != csvio.fingerprint(days):
+                raise core.Conflict("imp.e.not_found")
+            result = csvio.parse_import(text, days, load_settings(), now(), code)
+            overwrite = {d for d in body.get("overwrite", []) if isinstance(d, str)}
+            merged, imported = csvio.merge(days, result["records"], overwrite)
+            backup = None
+            if imported:
+                backup = backup_records()
+                save_days(merged)        # una sola escritura atómica
+        return jsonify(imported=imported, backup=backup)
+
+    def backup_records() -> str | None:
+        source = data_dir / "records.json"
+        if not source.exists():
+            return None
+        folder = data_dir / "backups"
+        folder.mkdir(exist_ok=True)
+        name = f"records-{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
+        shutil.copy2(source, folder / name)
+        return f"data/backups/{name}"
+
+    @app.get("/api/shortcuts/defaults")
+    def shortcut_defaults():
+        return jsonify(core.DEFAULT_SHORTCUTS)
 
     @app.get("/api/settings")
     def get_settings():
@@ -230,6 +327,74 @@ def create_app(data_dir: str | Path | None = None,
         return jsonify(settings)
 
     return app
+
+
+def _hm(seconds: float) -> str:
+    m = int(round(abs(seconds) / 60))
+    return f"{m // 60}:{m % 60:02d}"
+
+
+def report_context(days: dict, settings: dict, lang: str, now: datetime,
+                   start: date | None, end: date | None) -> dict:
+    """Datos del informe imprimible (solo días con registro dentro del rango)."""
+    tr = lambda key, **kw: i18n.tr(lang, key, **kw)  # noqa: E731
+    fmt_date = lambda d: d.strftime("%d/%m/%Y")  # noqa: E731
+    keys = sorted(k for k in days if (not start or k >= start.isoformat()) and (not end or k <= end.isoformat()))
+    computed = [core.compute_day(date.fromisoformat(k), days[k], settings, now) for k in keys]
+    first = start or (date.fromisoformat(keys[0]) if keys else core.local_date(now))
+    last = end or (date.fromisoformat(keys[-1]) if keys else core.local_date(now))
+
+    rows = []
+    plus = minus = 0.0
+    for c in computed:
+        loc = c["local"]
+        if c["status"] == "finished":
+            bal, cls = c["balance_s"], ("pos" if c["balance_s"] >= 60 else "neg" if c["balance_s"] <= -60 else "")
+            plus += max(0.0, bal)
+            minus += max(0.0, -bal)
+            balance = ("+" if bal > 0 else "−" if bal < 0 else "") + _hm(bal)
+        elif c["status"] in ("working", "on_break"):
+            balance, cls = tr("report.pending"), "pend"
+        else:
+            balance, cls = "—", ""
+        rows.append({
+            "date": fmt_date(date.fromisoformat(c["date"])),
+            "weekday": tr(f"weekday.{c['weekday']}"),
+            "mode": tr(f"mode.{c['mode']}"),
+            "profile": tr(f"profile.{c['profile']}") if c["profile"] and c["mode"] != "off" else "",
+            "in_out": f"{(loc['clock_in'] or '')[:5]} – {(loc['clock_out'] or '')[:5]}" if loc["clock_in"] else "—",
+            "breaks": [{"range": f"{(b['start'] or '')[:5]}–{(b['end'] or '')[:5]}", "note": b.get("note")}
+                       for b in loc["breaks"]],
+            "notes": c["notes"],
+            "worked": _hm(c["worked_s"]) if c["clock_in"] else "—",
+            "target": _hm(c["target_s"]) if c["target_s"] else "—",
+            "balance": balance,
+            "balance_cls": cls,
+        })
+    worked_days = [c for c in computed if c["clock_in"]]
+    # Los totales cuentan solo jornadas cerradas para que trabajado − objetivo = balance.
+    closed = [c for c in computed if c["status"] == "finished"]
+    total_bal = plus - minus
+    summary = {
+        "days": len(worked_days),
+        "worked": _hm(sum(c["worked_s"] for c in closed)),
+        "target": _hm(sum(c["target_s"] for c in closed)),
+        "breaks": _hm(sum(c["break_s"] for c in worked_days)),
+        "has_open": any(c["status"] in ("working", "on_break", "unclosed") for c in computed),
+        "plus": "+" + _hm(plus),
+        "minus": "−" + _hm(minus),
+        "balance_s": total_bal,
+        "balance": ("+" if total_bal > 0 else "−" if total_bal < 0 else "") + _hm(total_bal),
+        "balance_cls": "pos" if total_bal >= 60 else "neg" if total_bal <= -60 else "",
+        "avg": _hm(sum(c["worked_s"] for c in closed) / len(closed)) if closed else "0:00",
+    }
+    local_now = now.astimezone(core.TZ)
+    return {
+        "rows": rows,
+        "summary": summary,
+        "period": tr("report.period", **{"from": fmt_date(first), "to": fmt_date(last)}),
+        "generated": local_now.strftime("%d/%m/%Y %H:%M"),
+    }
 
 
 def _local_get(url: str, timeout: float = 2.0):
