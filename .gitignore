@@ -24,6 +24,12 @@ __pycache__/
 # ── Configuración privada y del editor ─────────────────────────────────
 .env
 .env.*
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+secrets.*
 .claude/settings.local.json
 .vscode/
 .idea/
