@@ -222,3 +222,118 @@ $('#imAll').addEventListener('change', (e) => {
 $('#imCancel').addEventListener('click', () => resetImport({ silent: false }));
 $('#imConfirm').addEventListener('click', confirmImport);
 $('#settingsDialog').addEventListener('close', () => resetImport());
+
+/* ------------------------------------------------ copia completa (2.1) */
+
+const backupState = { text: null, preview: null };
+const BACKUP_MAX = 10 * 1024 * 1024;
+
+async function downloadBackup(button) {
+  $('#bkError').hidden = true;
+  button.classList.add('is-saving');
+  try {
+    const res = await fetch('/api/backup', { cache: 'no-store' });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Error ${res.status}`);
+    const blob = await res.blob();
+    const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '')?.[1] || 'jornada-backup.json';
+    const url = URL.createObjectURL(blob);
+    const a = Object.assign(document.createElement('a'), { href: url, download: name });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    toast(t('bk.exported', { file: name }), 'ok');
+  } catch (e) {
+    showError($('#bkError'), e.message);
+  } finally {
+    button.classList.remove('is-saving');
+  }
+}
+
+function resetBackup() {
+  backupState.text = null;
+  backupState.preview = null;
+  $('#bkPreview').hidden = true;
+  $('#bkPreview').innerHTML = '';
+  $('#bkFile').value = '';
+}
+
+async function previewBackup(file) {
+  resetBackup();
+  $('#bkError').hidden = true;
+  if (!file) return;
+  if (file.size > BACKUP_MAX) { showError($('#bkError'), t('bk.e.too_big', { mb: 10 })); return; }
+  try {
+    backupState.text = await file.text();
+    const p = await api('/api/backup/preview', { method: 'POST', body: { text: backupState.text } });
+    backupState.preview = p;
+    renderBackupPreview(p);
+  } catch (e) {
+    backupState.text = null;
+    showError($('#bkError'), e.message);
+  } finally {
+    $('#bkFile').value = '';
+  }
+}
+
+function renderBackupPreview(p) {
+  const c = p.counts, cur = p.current;
+  const created = p.meta.created_at ? new Date(p.meta.created_at) : null;
+  const range = c.first ? `${longDate(c.first, { day: 'numeric', month: 'short', year: 'numeric' })} – ${longDate(c.last, { day: 'numeric', month: 'short', year: 'numeric' })}` : '—';
+  const row = (label, now, then) => `<tr><th scope="row">${esc(label)}</th><td class="num">${now}</td><td class="num strong">${then}</td></tr>`;
+  $('#bkPreview').innerHTML = `
+    <div class="bk-meta">
+      <span class="im-chip new">${icon('i-check')}${esc(t('bk.valid'))}</span>
+      <span class="muted small">${esc(t('bk.meta', { version: p.meta.app_version, date: created && !isNaN(created) ? created.toLocaleString(currentLocale(), { timeZone: TZ }) : '—' }))}</span>
+    </div>
+    <table class="data-table bk-table">
+      <thead><tr><th></th><th class="num">${esc(t('bk.now'))}</th><th class="num">${esc(t('bk.after'))}</th></tr></thead>
+      <tbody>
+        ${row(t('bk.days'), cur.clocked_days, c.clocked_days)}
+        ${row(t('bk.breaks'), cur.breaks, c.breaks)}
+        ${row(t('bk.notes'), cur.notes, c.notes)}
+        ${row(t('bk.marks'), cur.calendar_days + cur.recurring, c.calendar_days + c.recurring)}
+      </tbody>
+    </table>
+    <p class="small">${esc(t('bk.range', { range }))} · ${esc(t('bk.settings_included'))}</p>
+    ${p.overwrites ? `<div class="alert warn">${icon('i-alert')}<span>${t('bk.overwrite_warn')}</span></div>` : ''}
+    <label class="check-row"><input type="checkbox" id="bkConfirm"><span><strong>${esc(t('bk.confirm_check'))}</strong><small class="muted">${esc(t('bk.auto_copy'))}</small></span></label>
+    <div class="data-actions">
+      <button type="button" class="ghost-btn" data-bk-cancel>${esc(t('imp.cancel'))}</button>
+      <button type="button" class="primary-btn danger" id="bkGo" disabled>${icon('i-rotate')}${esc(t('bk.restore_go'))}</button>
+    </div>`;
+  $('#bkPreview').hidden = false;
+}
+
+async function restoreBackup() {
+  const p = backupState.preview;
+  if (!p || !backupState.text) return;
+  const ok = await confirmDialog({ title: t('bk.confirm_title'), text: t('bk.confirm_text'), ok: t('bk.restore_go'), danger: true });
+  if (!ok) return;
+  const btn = $('#bkGo');
+  btn.classList.add('is-saving');
+  try {
+    const res = await api('/api/backup/restore', {
+      method: 'POST', body: { text: backupState.text, fingerprint: p.fingerprint, state: p.state, confirm: true },
+    });
+    syncSend('restored');
+    toast(t('bk.restored', { folder: res.backup }), 'ok', 8000);
+    resetBackup();
+    // Idioma, tema y ajustes pueden haber cambiado: se recarga la aplicación entera.
+    setTimeout(() => location.reload(), 1200);
+  } catch (e) {
+    showError($('#bkError'), e.message);
+    if (e.status === 409) resetBackup();
+  } finally {
+    btn?.classList.remove('is-saving');
+  }
+}
+
+$('#bkExport').addEventListener('click', (e) => downloadBackup(e.currentTarget));
+$('#bkFile').addEventListener('change', (e) => previewBackup(e.target.files[0]));
+$('#bkPreview').addEventListener('change', (e) => { if (e.target.id === 'bkConfirm') $('#bkGo').disabled = !e.target.checked; });
+$('#bkPreview').addEventListener('click', (e) => {
+  if (e.target.closest('[data-bk-cancel]')) resetBackup();
+  if (e.target.closest('#bkGo')) restoreBackup();
+});
+$('#settingsDialog').addEventListener('close', () => resetBackup());

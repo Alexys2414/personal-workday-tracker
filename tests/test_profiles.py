@@ -138,7 +138,7 @@ class Settings(unittest.TestCase):
                                     "optional_break_minutes": 30 if i < 4 else 0,
                                     "mode": "remote" if i == 2 else "office"} for i in range(7)}}
         s = core.normalize_settings(v1)
-        self.assertEqual(s["version"], 2)
+        self.assertEqual(s["version"], core.SETTINGS_VERSION)
         self.assertEqual(s["profiles"]["normal"]["target_minutes"], 500)
         self.assertEqual(s["profiles"]["friday"]["target_minutes"], 420)
         self.assertEqual(s["weekdays"]["4"]["profile"], "friday")

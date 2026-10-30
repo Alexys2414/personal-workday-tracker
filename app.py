@@ -29,12 +29,16 @@ if sys.version_info < (3, 10):
 
 from flask import Flask, Response, abort, jsonify, render_template, request  # noqa: E402
 
+import backup  # noqa: E402
 import core  # noqa: E402
 import csvio  # noqa: E402
+import daymarks  # noqa: E402
 import i18n  # noqa: E402
-from storage import JsonStore  # noqa: E402
+import insights  # noqa: E402
+from storage import JsonStore, save_many  # noqa: E402
 
 APP_ID = "jornada"
+APP_VERSION = "2.1.0"
 LOCAL_HOSTS = {"127.0.0.1", "localhost"}
 DEFAULT_PORT = 8765
 PORT_ATTEMPTS = 20
@@ -68,9 +72,13 @@ def create_app(data_dir: str | Path | None = None,
     app.jinja_env.auto_reload = True
     app.config["BUILD"] = asset_build()      # versión con la que arrancó este proceso
 
+    # Copia de seguridad completa: hasta 10 MB de JSON (más margen para el envoltorio).
+    app.config["MAX_CONTENT_LENGTH"] = backup.MAX_BYTES + 1024 * 1024
+
     data_dir = Path(data_dir or resolve_data_dir())
     records_store = JsonStore(data_dir / "records.json", lambda: {"version": 1, "days": {}})
     settings_store = JsonStore(data_dir / "settings.json", core.default_settings)
+    calendar_store = JsonStore(data_dir / "calendar.json", core.default_calendar)
     lock = threading.Lock()
     clock = clock or (lambda: datetime.now(core.UTC))
 
@@ -86,6 +94,9 @@ def create_app(data_dir: str | Path | None = None,
 
     def save_days(days: dict) -> None:
         records_store.save({"version": 1, "days": days})
+
+    def load_calendar() -> dict:
+        return core.normalize_calendar(calendar_store.load())
 
     def parse_date(value: str) -> date:
         try:
@@ -107,18 +118,36 @@ def create_app(data_dir: str | Path | None = None,
             raise core.ValidationError("err.bad_range")
         return start, end
 
-    def compute(dates, days, settings, current):
-        return [core.compute_day(d, days.get(d.isoformat()), settings, current) for d in dates]
+    def compute(dates, days, settings, current, calendar):
+        return [core.compute_day(d, days.get(d.isoformat()), settings, current, calendar) for d in dates]
 
-    def period(dates, days, settings, current):
-        computed = compute(dates, days, settings, current)
+    def period(dates, days, settings, current, calendar):
+        computed = compute(dates, days, settings, current, calendar)
         return {"from": dates[0].isoformat(), "to": dates[-1].isoformat(),
                 "days": computed, "summary": core.summarize(computed, current)}
 
-    # Crea los JSON al arrancar si no existen.
+    def snapshot_folder(reason: str) -> Path:
+        """Copia de los JSON actuales en data/backups/<motivo>-<fecha>/ (nunca se borran solas)."""
+        folder = data_dir / "backups" / f"{reason}-{datetime.now().strftime('%Y%m%d-%H%M%S-%f')}"
+        folder.mkdir(parents=True, exist_ok=True)
+        for name in ("records.json", "settings.json", "calendar.json"):
+            if (data_dir / name).exists():
+                shutil.copy2(data_dir / name, folder / name)
+        return folder
+
+    # Crea los JSON al arrancar si no existen. Si los ajustes son de una versión
+    # anterior, se guarda una copia antes de migrarlos (los valores existentes se conservan).
     with lock:
+        if settings_store.path.exists():
+            try:
+                old_version = json.loads(settings_store.path.read_text(encoding="utf-8")).get("version", 1)
+            except (OSError, ValueError, AttributeError):
+                old_version = core.SETTINGS_VERSION
+            if isinstance(old_version, int) and old_version < core.SETTINGS_VERSION:
+                snapshot_folder(f"pre-migracion-ajustes-v{old_version}")
         settings_store.save(load_settings())
         load_days()
+        load_calendar()
 
     @app.before_request
     def _only_local():
@@ -148,6 +177,7 @@ def create_app(data_dir: str | Path | None = None,
         today = core.local_date(current)
         settings = load_settings()
         days = load_days()
+        calendar = load_calendar()
         unclosed = []
         for key in sorted(days, reverse=True)[:60]:
             d = date.fromisoformat(key)
@@ -163,13 +193,29 @@ def create_app(data_dir: str | Path | None = None,
             server_ms=int(current.timestamp() * 1000),
             build=app.config["BUILD"],
             disk_build=asset_build(),
+            version=APP_VERSION,
             settings=settings,
-            today=core.compute_day(today, days.get(today.isoformat()), settings, current),
-            week=core.summarize(compute(core.week_dates(today), days, settings, current), current),
-            month=core.summarize(compute(month, days, settings, current), current),
-            total={**core.summarize(compute(history, days, settings, current), current),
+            today=core.compute_day(today, days.get(today.isoformat()), settings, current, calendar),
+            week=core.summarize(compute(core.week_dates(today), days, settings, current, calendar), current),
+            month=core.summarize(compute(month, days, settings, current, calendar), current),
+            total={**core.summarize(compute(history, days, settings, current, calendar), current),
                    "since": history[0].isoformat() if history else None},
+            weekly=insights.weekly_goal(today, days, settings, current, calendar),
+            upcoming=insights.upcoming_marks(calendar, settings, today),
             unclosed=unclosed,
+        )
+
+    @app.get("/api/today")
+    def today_light():
+        """Estado mínimo para la vista compacta: hoy, ajustes y hora del servidor."""
+        current = now()
+        today = core.local_date(current)
+        return jsonify(
+            server_ms=int(current.timestamp() * 1000),
+            build=app.config["BUILD"],
+            settings=load_settings(),
+            today=core.compute_day(today, load_days().get(today.isoformat()), load_settings(), current,
+                                   load_calendar()),
         )
 
     @app.get("/api/ping")
@@ -197,32 +243,35 @@ def create_app(data_dir: str | Path | None = None,
             today = core.local_date(current)
             settings = load_settings()
             days = load_days()
+            calendar = load_calendar()
             key = today.isoformat()
-            before = core.compute_day(today, days.get(key), settings, current)["status"]
-            # Protección frente a doble clic: si el estado ya cambió, no se repite.
+            before = core.compute_day(today, days.get(key), settings, current, calendar)["status"]
+            # Protección frente a doble clic y a dos ventanas (panel y vista compacta):
+            # si el estado ya cambió, la acción no se repite.
             if body.get("expect") and body["expect"] != before:
                 raise core.Conflict("conflict.state_changed")
-            days[key] = core.apply_action(action, today, days.get(key), settings, current)
+            days[key] = core.apply_action(action, today, days.get(key), settings, current, calendar)
             save_days(days)
-            return jsonify(today=core.compute_day(today, days[key], settings, current))
+            return jsonify(today=core.compute_day(today, days[key], settings, current, calendar))
 
     @app.get("/api/month/<int:year>-<int:month>")
     def month_view(year: int, month: int):
         if not 1 <= month <= 12 or not 2000 <= year <= 2100:
             raise core.ValidationError("err.bad_month")
         current = now()
-        return jsonify(period(core.month_dates(year, month), load_days(), load_settings(), current))
+        return jsonify(period(core.month_dates(year, month), load_days(), load_settings(), current, load_calendar()))
 
     @app.get("/api/week/<day>")
     def week_view(day: str):
         current = now()
-        return jsonify(period(core.week_dates(parse_date(day)), load_days(), load_settings(), current))
+        return jsonify(period(core.week_dates(parse_date(day)), load_days(), load_settings(), current,
+                              load_calendar()))
 
     @app.get("/api/days/<day>")
     def get_day(day: str):
         d = parse_date(day)
         days = load_days()
-        return jsonify(core.compute_day(d, days.get(day), load_settings(), now()))
+        return jsonify(core.compute_day(d, days.get(day), load_settings(), now(), load_calendar()))
 
     @app.put("/api/days/<day>")
     def put_day(day: str):
@@ -232,9 +281,10 @@ def create_app(data_dir: str | Path | None = None,
             current = now()
             settings = load_settings()
             days = load_days()
-            days[d.isoformat()] = core.build_record(d, body, days.get(d.isoformat()), settings, current)
+            calendar = load_calendar()
+            days[d.isoformat()] = core.build_record(d, body, days.get(d.isoformat()), settings, current, calendar)
             save_days(days)
-            return jsonify(core.compute_day(d, days[d.isoformat()], settings, current))
+            return jsonify(core.compute_day(d, days[d.isoformat()], settings, current, calendar))
 
     @app.delete("/api/days/<day>")
     def delete_day(day: str):
@@ -255,10 +305,11 @@ def create_app(data_dir: str | Path | None = None,
             current = now()
             settings = load_settings()
             days = load_days()
-            record = days.get(d.isoformat()) or core.new_record(d, settings)
+            calendar = load_calendar()
+            record = days.get(d.isoformat()) or core.new_record(d, settings, calendar)
             days[d.isoformat()] = core.set_note(record, body.get("target"), body.get("text"))
             save_days(days)
-            return jsonify(core.compute_day(d, days[d.isoformat()], settings, current))
+            return jsonify(core.compute_day(d, days[d.isoformat()], settings, current, calendar))
 
     # ------------------------------------------------------ exportación
 
@@ -337,13 +388,228 @@ def create_app(data_dir: str | Path | None = None,
             # perfiles; las jornadas cerradas y pasadas conservan los suyos.
             today = core.local_date(now()).isoformat()
             days = load_days()
+            calendar = load_calendar()
             changed = False
             for key, record in days.items():
                 if key >= today:
-                    changed |= core.refresh_open_record(record, date.fromisoformat(key), settings)
+                    changed |= core.refresh_open_record(record, date.fromisoformat(key), settings, calendar)
             if changed:
                 save_days(days)
         return jsonify(settings)
+
+    # --------------------------------------------------- vista compacta
+
+    @app.get("/compact")
+    def compact():
+        code = lang()
+        return render_template("compact.html", lang=code, i18n=i18n.catalog(code), build=asset_build(),
+                               t=lambda key, **kw: i18n.tr(code, key, **kw))
+
+    # ------------------------------------------- simulador (solo lectura)
+
+    @app.post("/api/simulate")
+    def simulate():
+        """Nunca escribe: calcula sobre una copia de la jornada."""
+        body = request.get_json(silent=True) or {}
+        d = parse_date(body["date"]) if body.get("date") else core.local_date(now())
+        days = load_days()
+        return jsonify(insights.simulate(d, days.get(d.isoformat()), load_settings(), now(),
+                                         body.get("params"), load_calendar()))
+
+    @app.post("/api/compensation")
+    def compensation():
+        body = request.get_json(silent=True) or {}
+        d = parse_date(body["date"]) if body.get("date") else None
+        return jsonify(insights.compensation(d, body.get("minutes"), load_days(), load_settings(), now(),
+                                             load_calendar()))
+
+    @app.get("/api/weekly/<day>")
+    def weekly(day: str):
+        return jsonify(insights.weekly_goal(parse_date(day), load_days(), load_settings(), now(), load_calendar()))
+
+    # ----------------------------------------------------- estadísticas
+
+    @app.get("/api/stats")
+    def stats():
+        current = now()
+        today = core.local_date(current)
+        month = request.args.get("month") or f"{today.year:04d}-{today.month:02d}"
+        try:
+            year, mon = map(int, month.split("-"))
+            if not 1 <= mon <= 12 or not 2000 <= year <= 2100:
+                raise ValueError
+        except ValueError:
+            raise core.ValidationError("err.bad_month")
+        scope = "all" if request.args.get("scope") == "all" else "month"
+        weeks = request.args.get("weeks", 12)
+        try:
+            weeks = int(weeks)
+        except ValueError:
+            weeks = 12
+        return jsonify(insights.advanced_stats(load_days(), load_settings(), current, load_calendar(),
+                                               year, mon, weeks, scope))
+
+    # ------------------------------------------- festivos y ausencias
+
+    @app.get("/api/calendar")
+    def get_calendar():
+        today = core.local_date(now())
+        settings = load_settings()
+        calendar = load_calendar()
+        return jsonify(calendar=calendar, upcoming=insights.upcoming_marks(calendar, settings, today, limit=8))
+
+    def conflict_payload(keys, days, settings, current):
+        return [{"date": k, "status": core.compute_day(date.fromisoformat(k), days[k], settings, current)["status"]}
+                for k in keys]
+
+    def save_marks(calendar: dict, dates: list[str], mark: dict, apply_to_records: bool | None):
+        """Guarda marcas. Si algún día tiene fichajes, el usuario debe decidir antes."""
+        current = now()
+        settings = load_settings()
+        days = load_days()
+        conflicts = [k for k in dates if k in days and (days[k].get("clock_in") or days[k].get("mode") == "off")]
+        if conflicts and apply_to_records is None:
+            return jsonify(error=tr("cal.conflict", n=len(conflicts)), code="cal.conflict",
+                           conflicts=conflict_payload(conflicts, days, settings, current)), 409
+        new_calendar = daymarks.apply_marks(calendar, dates, mark)
+        if conflicts and apply_to_records:
+            snapshot_folder("pre-tipo-de-dia")
+            for k in conflicts:
+                days[k] = daymarks.adopt_mark(days[k], date.fromisoformat(k), mark, settings)
+            save_many([(calendar_store, new_calendar), (records_store, {"version": 1, "days": days})])
+        else:
+            calendar_store.save(new_calendar)
+        return jsonify(ok=True, marked=len(dates), adopted=len(conflicts) if apply_to_records else 0)
+
+    def apply_flag(body):
+        value = body.get("apply")
+        return None if value is None else bool(value)
+
+    @app.put("/api/calendar/days/<day>")
+    def put_mark(day: str):
+        d = parse_date(day)
+        body = request.get_json(silent=True) or {}
+        mark = core.clean_mark(body)
+        with lock:
+            return save_marks(load_calendar(), [d.isoformat()], mark, apply_flag(body))
+
+    @app.delete("/api/calendar/days/<day>")
+    def delete_mark(day: str):
+        d = parse_date(day)
+        with lock:
+            calendar = load_calendar()
+            if calendar["days"].pop(d.isoformat(), None) is None:
+                return jsonify(error=tr("err.not_found")), 404
+            calendar_store.save(calendar)
+        return jsonify(ok=True)
+
+    @app.put("/api/calendar/recurring/<md>")
+    def put_recurring(md: str):
+        key = core.valid_month_day(md)
+        body = request.get_json(silent=True) or {}
+        label = core.clean_label(body.get("label"))
+        with lock:
+            calendar = load_calendar()
+            calendar["recurring"][key] = {"label": label} if label else {}
+            calendar_store.save(core.normalize_calendar(calendar))
+        return jsonify(ok=True)
+
+    @app.delete("/api/calendar/recurring/<md>")
+    def delete_recurring(md: str):
+        key = core.valid_month_day(md)
+        with lock:
+            calendar = load_calendar()
+            if calendar["recurring"].pop(key, None) is None:
+                return jsonify(error=tr("err.not_found")), 404
+            calendar_store.save(calendar)
+        return jsonify(ok=True)
+
+    def range_from(body):
+        start = parse_date(body.get("from"))
+        end = parse_date(body.get("to"))
+        return daymarks.range_plan(start, end, {"type": body.get("type"), "label": body.get("label")},
+                                   load_settings(), load_calendar(), load_days(),
+                                   bool(body.get("include_nonworking")))
+
+    @app.post("/api/calendar/range/preview")
+    def range_preview():
+        return jsonify(range_from(request.get_json(silent=True) or {}))
+
+    @app.post("/api/calendar/range")
+    def range_commit():
+        body = request.get_json(silent=True) or {}
+        with lock:
+            plan = range_from(body)
+            # Lo confirmado debe coincidir con lo que se mostró.
+            if body.get("count") is not None and body["count"] != plan["count"]:
+                raise core.Conflict("conflict.state_changed")
+            if not plan["count"]:
+                raise core.ValidationError("cal.e.nothing")
+            return save_marks(load_calendar(), plan["dates"], plan["mark"], apply_flag(body))
+
+    @app.post("/api/calendar/import/preview")
+    def calendar_import_preview():
+        body = request.get_json(silent=True) or {}
+        result = daymarks.parse_import(body.get("text", ""), body.get("filename", ""))
+        code = lang()
+        result["errors"] = [{**e, "message": i18n.tr(code, e["code"])} for e in result["errors"]]
+        return jsonify(result)
+
+    @app.post("/api/calendar/import")
+    def calendar_import():
+        body = request.get_json(silent=True) or {}
+        result = daymarks.parse_import(body.get("text", ""), body.get("filename", ""))
+        if not result["items"]:
+            raise core.ValidationError("cal.e.nothing")
+        with lock:
+            merged, n = daymarks.merge_import(load_calendar(), result["items"])
+            calendar_store.save(merged)
+        return jsonify(imported=n, errors=len(result["errors"]))
+
+    # ---------------------------------------------- copias de seguridad
+
+    @app.get("/api/backup")
+    def export_backup():
+        current = now()
+        with lock:
+            payload = backup.build(records_store.load(), load_settings(), load_calendar(), APP_VERSION, current)
+        text = json.dumps(payload, ensure_ascii=False, indent=2)
+        return Response(text, mimetype="application/json; charset=utf-8",
+                        headers={"Content-Disposition": f'attachment; filename="{backup.filename(current)}"',
+                                 "Cache-Control": "no-store"})
+
+    def current_fingerprint() -> str:
+        return backup.checksum({"records": records_store.load(), "settings": load_settings(),
+                                "calendar": load_calendar()})
+
+    @app.post("/api/backup/preview")
+    def backup_preview():
+        body = request.get_json(silent=True) or {}
+        parsed = backup.parse(body.get("text", ""))
+        current = backup.counts({"records": records_store.load(), "calendar": load_calendar()})
+        return jsonify(meta=parsed["meta"], counts=parsed["counts"], current=current,
+                       overwrites=bool(current["days"] or current["calendar_days"] or current["recurring"]),
+                       fingerprint=parsed["fingerprint"], state=current_fingerprint(),
+                       language=parsed["data"]["settings"]["language"])
+
+    @app.post("/api/backup/restore")
+    def backup_restore():
+        body = request.get_json(silent=True) or {}
+        if body.get("confirm") is not True:
+            raise core.ValidationError("bk.e.confirm")
+        parsed = backup.parse(body.get("text", ""))
+        with lock:
+            # Lo restaurado debe ser exactamente lo revisado, y los datos no deben
+            # haber cambiado desde la vista previa (p. ej. un fichaje en otra ventana).
+            if body.get("fingerprint") != parsed["fingerprint"] or body.get("state") != current_fingerprint():
+                raise core.Conflict("bk.e.changed")
+            folder = snapshot_folder("pre-restauracion")
+            data = parsed["data"]
+            save_many([(records_store, data["records"]), (settings_store, data["settings"]),
+                       (calendar_store, data["calendar"])])
+        return jsonify(ok=True, counts=parsed["counts"],
+                       backup=str(folder.relative_to(data_dir.parent)) if folder.is_relative_to(data_dir.parent)
+                       else str(folder))
 
     return app
 

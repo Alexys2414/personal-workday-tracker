@@ -219,9 +219,7 @@ class Translations(unittest.TestCase):
 
     def test_every_key_used_in_code_exists(self):
         keys = set(i18n.catalog("es"))
-        sources = [ROOT / "static/js/app.js", ROOT / "static/js/shortcuts.js", ROOT / "static/js/datatools.js",
-                   ROOT / "templates/index.html", ROOT / "templates/report.html", ROOT / "core.py",
-                   ROOT / "csvio.py", ROOT / "app.py"]
+        sources = [*ROOT.glob("static/js/*.js"), *ROOT.glob("templates/*.html"), *ROOT.glob("*.py")]
         pattern = re.compile(r"""(?:\bt|\btr|ValidationError|Conflict)\(\s*['"]([a-z_]+\.[\w.]+)['"]"""
                              r"""|data-i18n(?:-html|-title|-aria|-placeholder)?=["']([\w.]+)["']""")
         used = set()

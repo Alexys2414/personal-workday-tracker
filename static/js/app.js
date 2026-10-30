@@ -7,27 +7,15 @@
    ============================================================ */
 'use strict';
 
-const TZ = 'Europe/Madrid';
-const MODE_ICONS = { office: 'i-building', remote: 'i-home', off: 'i-palm' };
-const PROFILE_KEYS = ['normal', 'friday', 'summer'];
-const MAX_BREAK_NOTE = 200;
 
-const $ = (sel, root = document) => root.querySelector(sel);
-const icon = (id) => `<svg><use href="#${id}"/></svg>`;
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const weekdayName = (i) => t(`weekday.${i}`);
-const modeLabel = (m) => t(`mode.${m}`);
-const profileName = (p) => t(`profile.${p}`);
-
-const state = {
-  settings: null,
-  today: null,      // jornada de hoy calculada por el servidor
+// Amplía el estado común (common.js) con lo propio del panel completo.
+Object.assign(state, {
   week: null,       // resumen semana actual
   month: null,      // resumen mes actual
   total: null,      // balance acumulado de todas las jornadas
+  weekly: null,     // objetivo semanal (2.1)
+  upcoming: [],     // próximos festivos y ausencias (2.1)
   unclosed: [],
-  snapAt: 0,        // instante (reloj del servidor) de la foto
-  offset: 0,        // diferencia reloj servidor - reloj navegador
   cal: null,        // { year, month } visible en el calendario
   monthData: null,
   weekDate: null,
@@ -36,129 +24,15 @@ const state = {
   busy: false,
   heroKey: null,
   wasDone: null,
-  offline: false,
-};
+});
 
-/* ---------------------------------------------------------- utilidades */
 
-const nowMs = () => Date.now() + state.offset;
-const pad = (n) => String(n).padStart(2, '0');
 
-function hms(sec, ceil = false) {
-  let s = ceil ? Math.ceil(sec - 1e-6) : Math.floor(sec + 1e-6);
-  s = Math.max(0, s);
-  return `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
-}
-
-function human(sec, ceil = false) {
-  const s = Math.max(0, ceil ? Math.ceil(sec - 1e-6) : Math.floor(sec + 1e-6));
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60;
-  if (h) return m ? `${h} h ${m} min` : `${h} h`;
-  if (m) return r && m < 10 ? `${m} min ${r} s` : `${m} min`;
-  return `${r} s`;
-}
-
-/** Duración en el formato elegido en ajustes. */
-function dur(sec, ceil = false) {
-  if (state.settings?.duration_format === 'hm') {
-    const total = Math.max(0, ceil ? Math.ceil(sec / 60 - 1e-9) : Math.floor(sec / 60 + 1e-9));
-    const h = Math.floor(total / 60), m = total % 60;
-    return h ? `${h} h ${pad(m)} min` : `${m} min`;
-  }
-  return hms(sec, ceil);
-}
-
-function signed(sec) {
-  if (Math.abs(sec) < 1) return dur(0);
-  return (sec > 0 ? '+' : '−') + dur(Math.abs(sec));
-}
-
-const shortDur = (sec) => {
-  const m = Math.floor(Math.max(0, sec) / 60 + 1e-9);
-  return `${Math.floor(m / 60)}:${pad(m % 60)}`;
-};
-
-const fmtCache = new Map();
-function formatter(opts) {
-  const h12 = state.settings?.time_format === '12h';
-  const key = JSON.stringify(opts) + h12 + currentLocale();
-  if (!fmtCache.has(key)) fmtCache.set(key, new Intl.DateTimeFormat(currentLocale(), { timeZone: TZ, hour12: h12, ...opts }));
-  return fmtCache.get(key);
-}
-
-function clock(value, seconds = false) {
-  if (value == null) return '—';
-  return formatter({ hour: '2-digit', minute: '2-digit', ...(seconds ? { second: '2-digit' } : {}) }).format(new Date(value));
-}
-
-/** Hora grande con los segundos en pequeño. */
-function bigClock(ms) {
-  const parts = formatter({ hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(new Date(ms));
-  const get = (type) => parts.find((p) => p.type === type)?.value ?? '';
-  const period = get('dayPeriod');
-  return `${get('hour')}:${get('minute')}<small>:${get('second')}${period ? ' ' + esc(period) : ''}</small>`;
-}
-
-const keyFmt = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
-const dateKey = (ms) => keyFmt.format(new Date(ms));
-const keyToDate = (key) => new Date(`${key}T12:00:00Z`);
-const weekdayOf = (key) => (keyToDate(key).getUTCDay() + 6) % 7;
-function addDays(key, n) {
-  const d = keyToDate(key);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-}
-const longDate = (key, opts = { weekday: 'long', day: 'numeric', month: 'long' }) =>
-  new Intl.DateTimeFormat(currentLocale(), { timeZone: 'UTC', ...opts }).format(keyToDate(key));
-
-const refMinutes = (hhmm) => { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; };
-function localSeconds(ms) {
-  const p = new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
-    .formatToParts(new Date(ms));
-  const g = (type) => Number(p.find((x) => x.type === type).value);
-  return (g('hour') % 24) * 3600 + g('minute') * 60 + g('second');
-}
-
-/* --------------------------------------------------------------- API */
-
-async function api(path, { method = 'GET', body } = {}) {
-  let res;
-  try {
-    res = await fetch(path, {
-      method,
-      headers: body ? { 'Content-Type': 'application/json' } : {},
-      body: body ? JSON.stringify(body) : undefined,
-    });
-  } catch (e) {
-    setOffline(true);
-    throw new Error(t('toast.offline'));
-  }
-  setOffline(false);
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const err = new Error(data.error || `Error ${res.status}`);
-    err.status = res.status;
-    throw err;
-  }
-  return data;
-}
-
+hooks.offline = setOffline;
 function setOffline(off) {
   if (state.offline === off) return;
   state.offline = off;
   renderBanner();
-}
-
-/* ------------------------------------------------------------ toasts */
-
-function toast(msg, kind = 'ok', ms = 3600) {
-  const ic = { ok: 'i-check-circle', err: 'i-alert', warn: 'i-alert', info: 'i-info', party: 'i-sparkles' }[kind] || 'i-info';
-  const el = document.createElement('div');
-  el.className = `toast ${kind === 'party' ? 'ok' : kind}`;
-  el.setAttribute('role', kind === 'err' ? 'alert' : 'status');
-  el.innerHTML = `${icon(ic)}<span>${esc(msg)}</span>`;
-  $('#toasts').append(el);
-  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 260); }, ms);
 }
 
 function confirmDialog({ title, text, ok = t('common.confirm'), danger = false }) {
@@ -173,16 +47,6 @@ function confirmDialog({ title, text, ok = t('common.confirm'), danger = false }
   return new Promise((resolve) => dlg.addEventListener('close', () => resolve(dlg.returnValue === 'ok'), { once: true }));
 }
 
-/* ------------------------------------------------------------- tema */
-
-const media = matchMedia('(prefers-color-scheme: light)');
-const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
-function applyTheme(pref) {
-  const resolved = pref === 'system' ? (media.matches ? 'light' : 'dark') : pref;
-  document.documentElement.dataset.theme = resolved;
-  try { localStorage.setItem('wt-theme', pref); } catch (e) { /* sin almacenamiento */ }
-}
-media.addEventListener('change', () => state.settings?.theme === 'system' && applyTheme('system'));
 
 /* ------------------------------------------------------ carga de datos */
 
@@ -199,14 +63,31 @@ async function loadState() {
   state.week = data.week;
   state.month = data.month;
   state.total = data.total;
+  state.weekly = data.weekly;
+  state.upcoming = data.upcoming || [];
   state.unclosed = data.unclosed;
   // Versión: el proceso del servidor, los archivos en disco y esta página deben coincidir.
   const pageBuild = document.documentElement.dataset.build;
   state.update = data.build !== data.disk_build ? 'restart' : (pageBuild && pageBuild !== data.disk_build ? 'reload' : null);
   applyTheme(data.settings.theme);
+  applyLook(data.settings);
+  applyCards(data.settings);
   if (data.settings.language && data.settings.language !== currentLang()) await switchLanguage(data.settings.language, { save: false });
   renderStatic();
+  if (window.renderWeekly) renderWeekly();
+  if (window.renderUpcoming) renderUpcoming();
   tick();
+}
+
+/** Tarjetas secundarias que el usuario ha elegido ocultar (el panel principal siempre se ve). */
+function applyCards(s) {
+  const cards = s?.cards || {};
+  document.querySelectorAll('[data-card]').forEach((el) => { el.hidden = cards[el.dataset.card] === false; });
+  const quick = cards.quick_stats !== false, balance = cards.balance !== false;
+  $('#statsSection').classList.toggle('only-total', !quick && balance);
+  $('#statsSection').classList.toggle('no-total', quick && !balance);
+  $('#stats').hidden = !quick && !balance;
+  $('#weekSection').hidden = cards.week === false && cards.holidays === false;
 }
 
 async function loadMonth() {
@@ -248,71 +129,6 @@ function refreshAll() {
   return refreshing;
 }
 
-/* ------------------------------------------------------- cálculo en vivo */
-
-/** Instante en que el trabajo acumulado alcanza el objetivo. */
-function completionInstant(day, endMs) {
-  if (!day.clock_in || !day.target_s) return null;
-  const goal = day.target_s * 1000;
-  let acc = 0, cursor = Date.parse(day.clock_in);
-  const breaks = day.breaks.map((b) => [Date.parse(b.start), b.end ? Date.parse(b.end) : endMs]).sort((a, b) => a[0] - b[0]);
-  for (const [bs, be] of [...breaks, [endMs, endMs]]) {
-    const segEnd = Math.min(bs, endMs);
-    if (segEnd > cursor) {
-      if (acc + (segEnd - cursor) >= goal) return cursor + (goal - acc);
-      acc += segEnd - cursor;
-    }
-    cursor = Math.max(cursor, Math.min(be, endMs));
-  }
-  return null;
-}
-
-function live() {
-  const d = state.today;
-  const now = nowMs();
-  const dt = Math.max(0, (now - state.snapAt) / 1000);
-  let worked = d.worked_s, brk = d.break_s, cur = d.current_break_s;
-  if (d.status === 'working') worked += dt;
-  else if (d.status === 'on_break') { brk += dt; cur += dt; }
-
-  const target = d.target_s;
-  const remaining = Math.max(0, target - worked);
-  const extra = Math.max(0, worked - target);
-  const pendingBreak = target ? Math.max(0, d.min_break_s - brk) : 0;
-  const optLeft = target ? Math.max(0, d.min_break_s + d.optional_break_s - brk) : 0;
-  const inProgress = d.status === 'working' || d.status === 'on_break';
-
-  let exit = null, exitMin = null, exitOpt = null;
-  if (inProgress) {
-    exitMin = Math.round((now + remaining * 1000) / 1000) * 1000;
-    exit = exitMin + Math.ceil(pendingBreak) * 1000;
-    exitOpt = exitMin + Math.ceil(optLeft) * 1000;
-  } else if (d.status === 'not_started' && target) {
-    exitMin = now + target * 1000;
-    exit = exitMin + d.min_break_s * 1000;
-    exitOpt = exitMin + (d.min_break_s + d.optional_break_s) * 1000;
-  } else if (d.status === 'finished') {
-    exit = Date.parse(d.clock_out);
-  }
-  const done = !!target && remaining === 0 && !!d.clock_in;
-  const endMs = d.clock_out ? Date.parse(d.clock_out) : now;
-  return {
-    now, worked, brk, cur, target, remaining, extra, pendingBreak, optLeft, inProgress,
-    exit, exitMin, exitOpt, done,
-    completedAt: done ? completionInstant(d, endMs) : null,
-    progress: target ? Math.min(1, worked / target) : (d.clock_in ? 1 : 0),
-  };
-}
-
-function heroStatus(d, l) {
-  switch (d.status) {
-    case 'working': return l.done ? 'done' : 'working';
-    case 'on_break': return 'on_break';
-    case 'finished': return l.worked + 0.5 >= l.target ? 'finished' : 'finished_short';
-    case 'not_started': return d.target_s ? 'idle' : 'off';
-    default: return 'off';
-  }
-}
 
 /* -------------------------------------------------------------- tick */
 
@@ -348,6 +164,8 @@ function tick() {
   renderBreakMeter(d, l);
   renderDayline(d, l);
   renderStats(d, l);
+  if (window.renderWeeklyLive) renderWeeklyLive(d, l);
+  checkAlerts(d, l);
 
   const exitEl = $('#tlExit');
   if (exitEl && !d.clock_out) exitEl.textContent = l.exit ? clock(l.exit) : '—';
@@ -402,8 +220,13 @@ function renderCountdown(d, l, hs) {
     }
     default:
       label.textContent = t('count.today');
-      value.textContent = t(d.status === 'off' ? 'count.off' : 'count.rest');
-      sub.textContent = t(d.status === 'off' ? 'count.off_sub' : 'count.nonworking_sub');
+      if (d.day_type && d.status !== 'off') {
+        value.textContent = t(`dt.${d.day_type}`);
+        sub.textContent = d.day_label || t('count.daytype_sub');
+      } else {
+        value.textContent = t(d.status === 'off' ? 'count.off' : 'count.rest');
+        sub.textContent = t(d.status === 'off' ? 'count.off_sub' : 'count.nonworking_sub');
+      }
       ring = 0;
   }
   value.classList.toggle('long', value.textContent.length > 8);   // «+00:12:30» o «−00:12:30»
@@ -667,7 +490,9 @@ function renderStatic() {
   const d = state.today;
   $('#todayLabel').textContent = longDate(d.date);
   const hasMode = d.status !== 'nonworking';
-  $('#modeBadge').innerHTML = hasMode ? `${icon(MODE_ICONS[d.mode])}${modeLabel(d.mode)}` : `${icon('i-palm')}${t('mode.nonworking')}`;
+  $('#modeBadge').innerHTML = d.day_type && !d.target_s
+    ? `${icon(DAY_TYPE_ICONS[d.day_type])}${esc(t(`dt.${d.day_type}`))}`
+    : hasMode ? `${icon(MODE_ICONS[d.mode])}${modeLabel(d.mode)}` : `${icon('i-palm')}${t('mode.nonworking')}`;
   $('#modeBadge').nextElementSibling?.remove();
   if (d.profile && d.target_s) {
     $('#modeBadge').insertAdjacentHTML('afterend',
@@ -766,7 +591,7 @@ async function doAction(action, button) {
       resume: t('toast.resumed'),
     }[action];
     toast(msg, 'ok');
-    if (action === 'start') askNotifications();
+    syncSend();
   } catch (e) {
     toast(e.message, e.status === 409 ? 'warn' : 'err', 5000);
   } finally {
@@ -775,23 +600,18 @@ async function doAction(action, button) {
   }
 }
 
-function askNotifications() {
-  if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {});
-}
-
+/** Celebración visual al completar la jornada (el mensaje lo entregan los avisos, ver notify.js). */
 function celebrate() {
   const key = `wt-celebrated-${state.today.date}`;
   try { if (localStorage.getItem(key)) return; localStorage.setItem(key, '1'); } catch (e) { /* sin almacenamiento */ }
-  toast(t('alert.done'), 'party', 8000);
-  confetti();
-  if ('Notification' in window && Notification.permission === 'granted') {
-    try { new Notification(t('notif.title'), { body: t('notif.body') }); } catch (e) { /* ignorar */ }
-  }
+  if (state.settings?.motion !== 'reduced') confetti();
+  if (motionExpressive()) $('#hero').classList.add('glow');
 }
 
-/** Unos pocos papelitos que salen del anillo y caen: una vez al día, ~1,4 s. */
+/** Unos pocos papelitos que salen del anillo y caen: una vez al día, ~1,4 s (más en modo expresivo). */
 function confetti() {
-  if (reducedMotion.matches) return;
+  if (motionReduced()) return;
+  const pieces = motionExpressive() ? 40 : 22;
   const hero = $('#hero');
   const ring = $('#hero .ring-wrap').getBoundingClientRect();
   const box = hero.getBoundingClientRect();
@@ -800,13 +620,13 @@ function confetti() {
   hero.append(layer);
   const colors = ['--gold-fill', '--work-fill', '--break-fill'].map((v) => getComputedStyle(hero).getPropertyValue(v));
   const cx = ring.left - box.left + ring.width / 2, cy = ring.top - box.top + ring.height / 2;
-  for (let i = 0; i < 22; i++) {
+  for (let i = 0; i < pieces; i++) {
     const piece = document.createElement('i');
     piece.style.left = `${cx}px`;
     piece.style.top = `${cy}px`;
     piece.style.background = colors[i % colors.length];
     layer.append(piece);
-    const angle = (i / 22) * Math.PI * 2 + Math.random() * 0.3;
+    const angle = (i / pieces) * Math.PI * 2 + Math.random() * 0.3;
     const dist = 90 + Math.random() * 90;
     const dx = Math.cos(angle) * dist, dy = Math.sin(angle) * dist;
     const spin = (Math.random() - 0.5) * 720;
@@ -821,7 +641,8 @@ function confetti() {
 
 /* -------------------------------------------------------- calendario */
 
-const STATUS_CHIP = (c) => ({
+const STATUS_CHIP = (c) => (c.day_type && !c.clock_in && c.mode !== 'off'
+  ? [c.counted ? 'red' : 'rest', `dt.${c.day_type}`] : null) || ({
   finished: c.color === 'green' ? ['green', 'chip.completed'] : ['red', 'chip.deficit'],
   working: c.color === 'green' ? ['green', 'chip.completed_live'] : ['yellow', 'chip.in_progress'],
   on_break: ['yellow', 'chip.on_break'],
@@ -845,17 +666,18 @@ function renderCalendar() {
   for (let i = 0; i < lead; i++) cells.push('<span class="cal-day out"></span>');
   for (const c of state.monthData.days) {
     const n = Number(c.date.slice(8));
+    const rest = c.day_type && !c.clock_in;
     const cls = ['cal-day', c.color !== 'gray' ? c.color : '',
       c.date === todayKey ? 'today' : '', c.date === state.selected ? 'selected' : '',
-      !c.workday ? 'weekend' : ''].filter(Boolean).join(' ');
-    const mark = (c.registered && c.mode === 'off' ? icon('i-palm')
+      !c.workday ? 'weekend' : '', rest ? 'rest' : '', rest ? `dt-${c.day_type}` : ''].filter(Boolean).join(' ');
+    const mark = (c.day_type ? icon(DAY_TYPE_ICONS[c.day_type]) : c.registered && c.mode === 'off' ? icon('i-palm')
       : (c.profile === 'summer' && c.target_s ? icon('i-sun') : '') + (c.mode === 'remote' && c.workday ? icon('i-home') : ''))
       + (c.has_notes ? icon('i-note') : '');
     const hours = c.clock_in ? shortDur(c.worked_s) : '';
     const pct = c.target_s ? Math.min(100, (c.worked_s / c.target_s) * 100) : (c.clock_in ? 100 : 0);
     const bal = c.status === 'finished' && Math.abs(c.balance_s) >= 60
       ? `<span class="bal">${c.balance_s > 0 ? '+' : '−'}${shortDur(Math.abs(c.balance_s))}</span>` : '';
-    const title = `${longDate(c.date)}: ${t(STATUS_CHIP(c)[1])}${hours ? `, ${t('cal.worked', { hours })}` : ''}${c.has_notes ? `, ${t('cal.with_notes')}` : ''}`;
+    const title = `${longDate(c.date)}: ${t(STATUS_CHIP(c)[1])}${c.day_label ? ` (${c.day_label})` : ''}${hours ? `, ${t('cal.worked', { hours })}` : ''}${c.has_notes ? `, ${t('cal.with_notes')}` : ''}`;
     cells.push(`<button class="${cls}" data-date="${c.date}" title="${esc(title)}" aria-label="${esc(title)}" aria-pressed="${c.date === state.selected}">
       <span class="n">${n}</span>${mark ? `<span class="mk">${mark}</span>` : ''}
       <span><span class="row"><span class="h">${hours}</span>${bal}</span>${c.clock_in ? `<span class="bar"><span style="width:${pct}%"></span></span>` : ''}</span></button>`);
@@ -889,14 +711,17 @@ function renderDetail() {
   }
   const [chipCls, chipKey] = STATUS_CHIP(c);
   const head = `<div class="detail-head"><div><h3>${longDate(c.date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</h3>
-      <div class="chips"><span class="chip ${chipCls}">${esc(t(chipKey))}</span>${c.workday || c.registered ? `<span class="chip">${icon(MODE_ICONS[c.mode])}${esc(modeLabel(c.mode))}</span>` : ''}${profileChip(c)}</div></div></div>`;
+      <div class="chips"><span class="chip ${chipCls}">${esc(t(chipKey))}</span>${dayTypeChip(c)}${c.workday || c.registered ? `<span class="chip">${icon(MODE_ICONS[c.mode])}${esc(modeLabel(c.mode))}</span>` : ''}${profileChip(c)}</div></div></div>`;
 
   if (!c.registered) {
     const canAdd = c.status !== 'future';
     set(`${head}<div class="empty-state">${icon('i-calendar')}
       <span>${esc(t(c.status === 'future' ? 'detail.future' : 'detail.empty'))}</span>
       ${c.target_s ? `<span class="small">${esc(t('detail.planned', { dur: human(c.target_s) }))}</span>` : ''}
-      <button class="primary-btn" data-edit="${c.date}">${icon(canAdd ? 'i-plus' : 'i-edit')}${esc(t(canAdd ? 'detail.register' : 'detail.plan'))}</button></div>`);
+      <div class="detail-actions center">
+        <button class="primary-btn" data-edit="${c.date}">${icon(canAdd ? 'i-plus' : 'i-edit')}${esc(t(canAdd ? 'detail.register' : 'detail.plan'))}</button>
+        <button class="ghost-btn" data-mark="${c.date}">${icon('i-flag')}${esc(t(c.day_type ? 'mk.change' : 'mk.open'))}</button>
+      </div></div>`);
     return;
   }
 
@@ -920,8 +745,18 @@ function renderDetail() {
     <div class="detail-actions">
       <button class="ghost-btn" data-edit="${c.date}">${icon('i-edit')}${esc(t('common.edit'))}</button>
       ${c.notes ? '' : `<button class="ghost-btn" data-note="day" data-date="${c.date}">${icon('i-note')}${esc(t('detail.add_note'))}</button>`}
+      <button class="ghost-btn" data-mark="${c.date}" title="${esc(t('mk.open'))}">${icon('i-flag')}${esc(t(c.day_type ? 'mk.change' : 'mk.short'))}</button>
       <button class="danger-btn" data-delete="${c.date}">${icon('i-trash')}${esc(t('common.delete'))}</button>
     </div>`);
+}
+
+function dayTypeChip(c) {
+  if (!c.day_type) return '';
+  // En un día con fichajes, la etiqueta se muestra aparte del estado de la jornada.
+  const showType = c.clock_in || c.mode === 'off';
+  const label = c.day_label ? esc(c.day_label) : '';
+  if (!showType && !label) return '';
+  return `<span class="chip rest">${icon(DAY_TYPE_ICONS[c.day_type])}${showType ? esc(t(`dt.${c.day_type}`)) : ''}${showType && label ? ' · ' : ''}${label}${c.day_recurring ? ` ${icon('i-rotate')}` : ''}</span>`;
 }
 
 function profileChip(c) {
@@ -1133,6 +968,7 @@ async function saveEditor(ev) {
   save.classList.add('is-saving');
   try {
     await api(`/api/days/${date}`, { method: 'PUT', body });
+    syncSend();
     closeDialog(dayDialog);
     toast(t('toast.saved'), 'ok');
     state.selected = date;
@@ -1166,6 +1002,7 @@ async function deleteDay(date) {
   if (!ok) return false;
   try {
     await api(`/api/days/${date}`, { method: 'DELETE' });
+    syncSend();
     toast(t('toast.deleted'), 'ok');
     await refreshAll();
     return true;
@@ -1269,6 +1106,7 @@ function selectTab(name, { focus = false } = {}) {
   $('#sSave').hidden = name === 'data';
   if (name === 'shortcuts' && window.renderShortcutSettings) renderShortcutSettings();
   if (name === 'data' && window.prepareDataTab) prepareDataTab();
+  if (name === 'calendar' && window.prepareCalendarTab) prepareCalendarTab();
 }
 
 function fillSettingsForm() {
@@ -1306,10 +1144,108 @@ function fillSettingsForm() {
   setSegment($('#sTimeFormat'), s.time_format);
   setSegment($('#sDurFormat'), s.duration_format);
   setSegment($('#sLang'), s.language || currentLang());
+
+  // Objetivo semanal
+  setSegment($('#sGoalMode'), s.weekly_goal.mode);
+  $('#sGoalCustom').value = minutesToHM(s.weekly_goal.custom_minutes);
+  $('#sCompensation').checked = s.weekly_goal.compensation;
+  updateGoalForm();
+
+  // Apariencia
+  setSwatch(s.accent);
+  setSegment($('#sDensity'), s.density);
+  setSegment($('#sMotion'), s.motion);
+  $('#sMotionHint').textContent = t(reducedMotion.matches ? 'look.motion_system' : 'look.motion_hint');
+  document.querySelectorAll('[data-card-toggle]').forEach((box) => { box.checked = s.cards[box.dataset.cardToggle] !== false; });
+
+  // Avisos
+  const n = s.notifications;
+  $('#nInApp').checked = n.in_app;
+  $('#nDesktop').checked = n.desktop && notificationPermission() === 'granted';
+  $('#nSound').checked = n.sound;
+  $('#nDone').checked = n.done;
+  $('#nBreakPending').checked = n.break_pending;
+  $('#nBreakAfter').value = minutesToHM(n.break_pending_after);
+  $('#nBreakMin').checked = n.break_min_done;
+  $('#nBreakOver').checked = n.break_over;
+  leadDraft = [...new Set([...STANDARD_LEADS, ...n.leads])].sort((a, b) => b - a).map((m) => ({ m, on: n.leads.includes(m) }));
+  renderLeads();
+  updateDesktopHint();
+  if (window.fillDayTypes) fillDayTypes(s);
+}
+
+/* ---- objetivo semanal, apariencia y avisos (2.1) ---- */
+
+const STANDARD_LEADS = [30, 15, 5, 1];
+let leadDraft = [];
+
+function updateGoalForm() {
+  const custom = $('#sGoalMode').dataset.value === 'custom';
+  $('#sGoalCustomWrap').hidden = !custom;
+  const auto = state.weekly?.auto_s;
+  $('#sGoalAuto').textContent = !custom && auto != null ? t('goal.auto_value', { dur: shortDur(auto) }) : (custom ? t('goal.custom_hint') : '');
+}
+
+function setSwatch(accent) {
+  const box = $('#sAccent');
+  box.dataset.value = accent;
+  box.querySelectorAll('[data-value]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.value === accent)));
+  $('#sAccentName').textContent = t(`accent.${accent}`);
+}
+
+function renderLeads() {
+  $('#nLeads').innerHTML = leadDraft.map(({ m, on }) => `
+    <button type="button" class="lead-chip ${on ? 'on' : ''}" data-lead="${m}" aria-pressed="${on}">
+      ${icon(on ? 'i-check' : 'i-bell')}<span>${esc(t(m === 1 ? 'na.lead_one' : 'na.lead', { n: m }))}</span>
+      ${STANDARD_LEADS.includes(m) ? '' : `<i class="lead-x" data-remove="${m}" role="button" aria-label="${esc(t('common.delete'))}">${icon('i-x')}</i>`}
+    </button>`).join('');
+}
+
+const notificationPermission = () => ('Notification' in window ? Notification.permission : 'unsupported');
+
+function updateDesktopHint() {
+  const perm = notificationPermission();
+  const hint = $('#nDesktopHint');
+  hint.textContent = t({ granted: 'na.desktop_hint', denied: 'na.desktop_denied', unsupported: 'na.desktop_unsupported' }[perm] || 'na.desktop_hint');
+  $('#nDesktop').disabled = perm === 'denied' || perm === 'unsupported';
+}
+
+function collectLook() {
+  const cards = {};
+  document.querySelectorAll('[data-card-toggle]').forEach((box) => { cards[box.dataset.cardToggle] = box.checked; });
+  return { accent: $('#sAccent').dataset.value, density: $('#sDensity').dataset.value, motion: $('#sMotion').dataset.value, cards };
+}
+
+function collectExtras() {
+  const custom = hmToMinutes($('#sGoalCustom').value);
+  if ($('#sGoalMode').dataset.value === 'custom' && custom === null) throw new Error(t('goal.fmt'));
+  const after = hmToMinutes($('#nBreakAfter').value);
+  if ($('#nBreakPending').checked && (after === null || after < 15)) throw new Error(t('na.after_fmt'));
+  return {
+    weekly_goal: {
+      mode: $('#sGoalMode').dataset.value,
+      custom_minutes: custom ?? state.settings.weekly_goal.custom_minutes,
+      compensation: $('#sCompensation').checked,
+    },
+    notifications: {
+      in_app: $('#nInApp').checked,
+      desktop: $('#nDesktop').checked,
+      sound: $('#nSound').checked,
+      done: $('#nDone').checked,
+      leads: leadDraft.filter((x) => x.on).map((x) => x.m),
+      break_pending: $('#nBreakPending').checked,
+      break_pending_after: after ?? state.settings.notifications.break_pending_after,
+      break_min_done: $('#nBreakMin').checked,
+      break_over: $('#nBreakOver').checked,
+    },
+    ...collectLook(),
+    day_types: window.dayTypesDraft ? dayTypesDraft() : undefined,
+  };
 }
 
 function openSettings(tab = 'schedule') {
   fillSettingsForm();
+  settingsDialog.dataset.saved = '';
   if (window.loadShortcutDraft) loadShortcutDraft();
   $('#sError').hidden = true;
   if (!settingsDialog.open) settingsDialog.showModal();
@@ -1348,10 +1284,12 @@ async function saveSettings(ev) {
   }
   const summerDays = [...$('#sSummerDays').querySelectorAll('button.active')].map((b) => Number(b.dataset.day));
   const language = $('#sLang').dataset.value;
+  let extras;
+  try { extras = collectExtras(); } catch (e) { showError(err, e.message); return; }
   const save = $('#sSave');
   save.classList.add('is-saving');
   try {
-    await api('/api/settings', {
+    state.settings = await api('/api/settings', {
       method: 'PUT',
       body: {
         profiles,
@@ -1362,9 +1300,11 @@ async function saveSettings(ev) {
         duration_format: $('#sDurFormat').dataset.value,
         language,
         shortcuts: window.shortcutDraft ? shortcutDraft() : undefined,
+        ...extras,
       },
     });
     fmtCache.clear();
+    syncSend('settings');
     closeDialog(settingsDialog);
     if (language !== currentLang()) await switchLanguage(language, { save: false });
     toast(t('toast.settings_saved'), 'ok');
@@ -1428,7 +1368,7 @@ async function quitApp() {
 
 async function toggleTheme() {
   const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-  if (document.startViewTransition && !reducedMotion.matches) document.startViewTransition(() => applyTheme(next));
+  if (document.startViewTransition && !motionReduced()) document.startViewTransition(() => applyTheme(next));
   else applyTheme(next);
   try {
     state.settings = await api('/api/settings', { method: 'PUT', body: { theme: next } });
@@ -1440,7 +1380,7 @@ async function toggleTheme() {
 /** Lleva una sección a la vista y le da el foco (atajos «Abrir calendario/estadísticas»). */
 function focusSection(id) {
   const el = document.getElementById(id);
-  el.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' });
+  el.scrollIntoView({ behavior: motionReduced() ? 'auto' : 'smooth', block: 'start' });
   el.focus({ preventScroll: true });
   el.classList.remove('flash');
   void el.offsetWidth;
@@ -1488,6 +1428,8 @@ function bindEvents() {
     if (del) deleteDay(del.dataset.delete);
     const note = e.target.closest('[data-note]');
     if (note && state.selected) openNote(state.selected, note.dataset.note);
+    const mark = e.target.closest('[data-mark]');
+    if (mark && window.openMark) openMark(mark.dataset.mark);
   });
 
   $('#prevWeek').addEventListener('click', () => { selectDate(addDays(state.weekDate, -7)); slideIn($('#weekBody'), -1); });
@@ -1551,10 +1493,118 @@ function bindEvents() {
     if (b) { b.classList.toggle('active'); b.setAttribute('aria-pressed', String(b.classList.contains('active'))); }
   });
 
+  // Apariencia: vista previa en vivo; se deshace si se cancela.
+  $('#sAccent').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-value]');
+    if (!b) return;
+    setSwatch(b.dataset.value);
+    applyLook({ ...state.settings, ...collectLook() });
+  });
+  ['#sDensity', '#sMotion'].forEach((sel) => $(sel).addEventListener('click', () => applyLook({ ...state.settings, ...collectLook() })));
+  $('#sCards').addEventListener('change', () => applyCards({ ...state.settings, ...collectLook() }));
+  settingsDialog.addEventListener('close', () => { applyLook(state.settings); applyCards(state.settings); });
+  $('#sGoalMode').addEventListener('click', updateGoalForm);
+
+  // Avisos
+  $('#nLeads').addEventListener('click', (e) => {
+    const rm = e.target.closest('[data-remove]');
+    if (rm) { leadDraft = leadDraft.filter((x) => x.m !== Number(rm.dataset.remove)); renderLeads(); return; }
+    const chip = e.target.closest('[data-lead]');
+    if (!chip) return;
+    const item = leadDraft.find((x) => x.m === Number(chip.dataset.lead));
+    item.on = !item.on;
+    renderLeads();
+  });
+  $('#nLeadAdd').addEventListener('click', () => {
+    const m = Number($('#nLeadCustom').value);
+    if (!Number.isInteger(m) || m < 1 || m > 480) { showError($('#sError'), t('na.custom_fmt')); return; }
+    if (leadDraft.length >= 8 && !leadDraft.some((x) => x.m === m)) { showError($('#sError'), t('na.custom_max')); return; }
+    $('#sError').hidden = true;
+    const item = leadDraft.find((x) => x.m === m);
+    if (item) item.on = true; else leadDraft.push({ m, on: true });
+    leadDraft.sort((a, b) => b.m - a.m);
+    $('#nLeadCustom').value = '';
+    renderLeads();
+  });
+  $('#nDesktop').addEventListener('change', async (e) => {
+    if (!e.target.checked) return;
+    const perm = await requestDesktopPermission();   // solo ahora, porque el usuario lo ha pedido
+    e.target.checked = perm === 'granted';
+    updateDesktopHint();
+    if (perm !== 'granted') showError($('#sError'), t('na.desktop_denied'));
+  });
+  $('#nSound').addEventListener('change', (e) => {
+    if (e.target.checked) unlockAudio(true);
+  });
+  $('#nTest').addEventListener('click', () => {
+    let cfg;
+    try { cfg = collectExtras().notifications; } catch (e) { showError($('#sError'), e.message); return; }
+    if (cfg.sound) unlockAudio(true);
+    deliverAlert({ id: `test-${Date.now()}`, kind: 'info', key: 'na.test_msg' }, { ...cfg, in_app: true });
+  });
+
+  // Modo compacto
+  $('#compactBtn').addEventListener('click', (e) => { e.stopPropagation(); toggleCompactMenu(); });
+  $('#compactMenu').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-compact]');
+    if (b) { toggleCompactMenu(false); openCompact(b.dataset.compact); }
+  });
+  document.addEventListener('click', (e) => { if (!e.target.closest('.menu-wrap')) toggleCompactMenu(false); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#compactMenu').hidden) { toggleCompactMenu(false); $('#compactBtn').focus(); } });
+
+  // Otras ventanas de Jornada (vista compacta) avisan cuando cambian algo.
+  onSync(() => refreshAll());
+
   // Al volver a la pestaña o despertar el equipo, se resincroniza con el servidor.
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshAll(); });
   window.addEventListener('focus', () => refreshAll());
   window.addEventListener('resize', () => { if (settingsDialog.open) selectTab(settingsDialog.dataset.tab || 'schedule'); });
+}
+
+/* ---------------------------------------------------- modo compacto */
+
+const pipSupported = () => 'documentPictureInPicture' in window && window.isSecureContext;
+
+function toggleCompactMenu(open) {
+  const menu = $('#compactMenu');
+  const show = open ?? menu.hidden;
+  menu.querySelector('[data-compact="pip"]').hidden = !pipSupported();
+  menu.hidden = !show;
+  $('#compactBtn').setAttribute('aria-expanded', String(show));
+  if (show) menu.querySelector('button:not([hidden])')?.focus();
+}
+
+/** Vista compacta: en esta pestaña, en una ventana aparte o (si el navegador lo permite)
+ *  en una ventana Picture-in-Picture que se mantiene encima de las demás. */
+async function openCompact(where) {
+  if (where === 'here') { location.href = '/compact'; return; }
+  if (where === 'pip' && pipSupported()) {
+    try {
+      const pip = await documentPictureInPicture.requestWindow({ width: 360, height: 400 });
+      const frame = pip.document.createElement('iframe');
+      frame.src = '/compact?pip=1';
+      frame.title = 'Jornada';
+      frame.style.cssText = 'border:0;width:100%;height:100%;display:block';
+      pip.document.body.style.margin = '0';
+      pip.document.body.append(frame);
+      return;
+    } catch (e) {
+      toast(t('cm.pip_failed'), 'warn', 5000);
+    }
+  }
+  const win = window.open('/compact', 'jornada-compact', 'popup,width=380,height=460');
+  if (!win) toast(t('cm.blocked'), 'warn', 5000);
+}
+
+/** Enlaces directos: #/settings/calendar, #/simulate, #/stats, #/mark/AAAA-MM-DD
+ *  (con «/» para no confundirse con los id de la página, como #stats). */
+function openFromHash() {
+  if (!location.hash.startsWith('#/')) return;
+  const [view, arg] = location.hash.slice(2).split('/');
+  if (view === 'settings') openSettings(arg || 'schedule');
+  else if (view === 'simulate' && window.openSimulator) openSimulator(arg === 'tomorrow' ? 'tomorrow' : 'today');
+  else if (view === 'stats' && window.openStats) openStats();
+  else if (view === 'mark' && arg && window.openMark) openMark(arg);
 }
 
 function shiftMonth(delta) {
@@ -1568,7 +1618,7 @@ function shiftMonth(delta) {
 
 /** Entrada direccional corta (el mes siguiente llega desde la derecha). */
 function slideIn(el, direction) {
-  if (reducedMotion.matches || !el.animate) return;
+  if (motionReduced() || !el.animate) return;
   el.animate([
     { opacity: 0, transform: `translateX(${direction > 0 ? 14 : -14}px)` },
     { opacity: 1, transform: 'none' },
@@ -1578,7 +1628,7 @@ function slideIn(el, direction) {
 /** Cierre animado de los modales (la salida es más rápida que la entrada). */
 function closeDialog(dlg, value) {
   if (!dlg.open || dlg.classList.contains('closing')) return;
-  if (reducedMotion.matches) { dlg.close(value); return; }
+  if (motionReduced()) { dlg.close(value); return; }
   dlg.classList.add('closing');
   setTimeout(() => { dlg.classList.remove('closing'); dlg.close(value); }, 170);
 }
@@ -1611,6 +1661,7 @@ async function init() {
   // consola, pero no detiene el reloj.
   const loop = () => { setTimeout(loop, 1005 - (nowMs() % 1000)); tick(); };
   loop();
+  openFromHash();
   setInterval(() => { if (!document.hidden) refreshAll(); }, 60000);
   setInterval(() => { if (document.hidden && !state.closed) api('/api/ping').catch(() => {}); }, 300000);
 }
@@ -1618,4 +1669,5 @@ async function init() {
 bindEvents();
 renderSkeletons();
 window.addEventListener('scroll', () => $('.topbar').classList.toggle('scrolled', scrollY > 4), { passive: true });
+window.name = window.name || 'jornada-main';   // la vista compacta puede volver a esta ventana
 init();

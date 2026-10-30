@@ -1,0 +1,75 @@
+<!doctype html>
+<!-- Pruebas de planAlerts() (static/js/notify.js) en un navegador real, sin Node.
+     tests/test_browser.py la abre con Chrome headless y lee el resultado de #out. -->
+<meta charset="utf-8">
+<title>notify.js</title>
+<pre id="out">ejecutando…</pre>
+<script>
+  // notify.js usa `state` solo dentro de checkAlerts(); aquí basta un objeto vacío.
+  var state = {};
+</script>
+<script src="../../static/js/notify.js"></script>
+<script>
+'use strict';
+const results = [];
+function check(name, cond) { results.push(`${cond ? 'PASS' : 'FAIL'} ${name}`); }
+const ids = (list) => list.map((a) => (typeof a === 'string' ? a : a.id)).sort().join(',');
+
+const NOW = Date.UTC(2026, 9, 29, 15, 0, 0);
+const cfg = { in_app: true, leads: [30, 15, 5], done: true, break_pending: true, break_pending_after: 300,
+  break_min_done: true, break_over: true };
+const day = (status, extra = {}) => ({ status, min_break_s: 3600, optional_break_s: 1800, ...extra });
+const live = (o) => ({ now: NOW, target: 30600, done: false, remaining: 5000, worked: 25000, brk: 0, pendingBreak: 0, completedAt: null, ...o });
+
+// 1. Cruzar el umbral de 15 min avisa una vez; con el registro hecho no se repite.
+let p = planAlerts(day('working'), live({ remaining: 899 }), cfg, { 'lead-30': 1 });
+check('cruza 15 min → avisa', ids(p.fire) === 'lead-15' && p.mark.length === 0);
+p = planAlerts(day('working'), live({ remaining: 880 }), cfg, { 'lead-30': 1, 'lead-15': 1 });
+check('sin duplicado tras avisar', p.fire.length === 0 && p.mark.length === 0);
+
+// 2. Abrir/recargar cuando ya se cruzaron varios: solo el más cercano y reciente.
+p = planAlerts(day('working'), live({ remaining: 290 }), cfg, {});
+check('recarga: solo el de 5 min', ids(p.fire) === 'lead-5' && ids(p.mark) === 'lead-15,lead-30');
+
+// 3. Demasiado tarde: se marca sin molestar.
+p = planAlerts(day('working'), live({ remaining: 60 }), { ...cfg, leads: [15] }, {});
+check('vencido: se marca sin avisar', p.fire.length === 0 && ids(p.mark) === 'lead-15');
+
+// 4. Durante un descanso la cuenta atrás está parada: no se avisa de la cuenta atrás.
+p = planAlerts(day('on_break'), live({ remaining: 880, brk: 100 }), { ...cfg, break_min_done: false, break_over: false }, {});
+check('en descanso no avisa cuenta atrás', p.fire.length === 0);
+
+// 5. Si se edita la jornada y vuelve a faltar más tiempo, el aviso se rearma.
+p = planAlerts(day('working'), live({ remaining: 2000 }), cfg, { 'lead-15': 1, 'lead-5': 1 });
+check('rearma tras editar', ids(p.rearm) === 'lead-15,lead-5');
+
+// 6. Jornada completada: solo si acaba de ocurrir.
+p = planAlerts(day('working'), live({ remaining: 0, done: true, completedAt: NOW - 30000 }), cfg, {});
+check('completada reciente → avisa', ids(p.fire) === 'done');
+p = planAlerts(day('working'), live({ remaining: 0, done: true, completedAt: NOW - 3600000 }), cfg, {});
+check('completada hace 1 h → solo marca', p.fire.length === 0 && ids(p.mark) === 'done');
+
+// 7. Descansos: mínimo cumplido y superado, cambiando de estado durante el descanso.
+p = planAlerts(day('on_break'), live({ brk: 3610 }), cfg, {});
+check('descanso mínimo cumplido', ids(p.fire) === 'break_min');
+p = planAlerts(day('on_break'), live({ brk: 5420 }), cfg, { break_min: 1 });
+check('descanso superado', ids(p.fire) === 'break_over');
+p = planAlerts(day('working'), live({ brk: 5420 }), cfg, { break_min: 1 });
+check('al volver al trabajo no avisa de descanso', p.fire.length === 0);
+
+// 8. Recordatorio de descanso pendiente: una vez, tras el tiempo configurado.
+p = planAlerts(day('working'), live({ worked: 18100, pendingBreak: 3600 }), cfg, {});
+check('recordatorio de descanso', ids(p.fire) === 'break_pending');
+p = planAlerts(day('working'), live({ worked: 19000, pendingBreak: 3600 }), cfg, { break_pending: 1 });
+check('recordatorio no se repite', p.fire.length === 0);
+p = planAlerts(day('working'), live({ worked: 17000, pendingBreak: 3600 }), cfg, {});
+check('antes del tiempo no recuerda', p.fire.length === 0);
+
+// 9. Nada configurado o jornada sin empezar → nada.
+p = planAlerts(day('working'), live({ remaining: 899 }), { ...cfg, leads: [], done: false, break_pending: false }, {});
+check('sin avisos activos', p.fire.length === 0);
+p = planAlerts(day('not_started'), live({ remaining: 30600 }), cfg, {});
+check('sin empezar', p.fire.length === 0 && p.mark.length === 0);
+
+document.getElementById('out').textContent = results.join('\n') + '\nDONE';
+</script>

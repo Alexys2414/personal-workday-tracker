@@ -8,7 +8,7 @@
 'use strict';
 
 const SC_ACTIONS = ['start_day', 'break_start', 'break_end', 'stop_day', 'open_calendar',
-  'open_stats', 'open_settings', 'toggle_theme', 'edit_today'];
+  'open_stats', 'open_settings', 'toggle_theme', 'edit_today', 'open_simulator'];
 const SC_MODIFIER_CODES = new Set(['ControlLeft', 'ControlRight', 'AltLeft', 'AltRight', 'ShiftLeft', 'ShiftRight',
   'MetaLeft', 'MetaRight', 'OSLeft', 'OSRight', 'CapsLock', 'Fn', 'AltGraph']);
 const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
@@ -245,6 +245,7 @@ function runShortcut(action, combo) {
   else if (action === 'open_settings') openSettings();
   else if (action === 'toggle_theme') toggleTheme();
   else if (action === 'edit_today') openEditor(d.date);
+  else if (action === 'open_simulator' && window.openSimulator) openSimulator();
 }
 
 window.addEventListener('keydown', (e) => {

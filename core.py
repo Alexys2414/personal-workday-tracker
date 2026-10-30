@@ -52,7 +52,7 @@ MAX_PERIODS = 30
 
 # Atajos de teclado: acción -> combinación «Ctrl+Alt+Shift+Meta+<KeyboardEvent.code>».
 SHORTCUT_ACTIONS = ("start_day", "break_start", "break_end", "stop_day", "open_calendar",
-                    "open_stats", "open_settings", "toggle_theme", "edit_today")
+                    "open_stats", "open_settings", "toggle_theme", "edit_today", "open_simulator")
 DEFAULT_SHORTCUTS = {
     "start_day": "Alt+Shift+KeyI",
     "break_start": "Alt+Shift+KeyD",
@@ -63,6 +63,7 @@ DEFAULT_SHORTCUTS = {
     "open_settings": "Alt+Shift+KeyA",
     "toggle_theme": "Alt+Shift+KeyT",
     "edit_today": "Alt+Shift+KeyE",
+    "open_simulator": "Alt+Shift+KeyS",
 }
 _MODIFIERS = ("Ctrl", "Alt", "Shift", "Meta")
 _KEY_CODE_RE = re.compile(
@@ -82,6 +83,25 @@ def valid_shortcut(combo: str) -> bool:
             and bool(_KEY_CODE_RE.match(code)))
 
 
+# Apariencia (2.1)
+ACCENTS = ("teal", "blue", "violet", "coral", "amber")
+DENSITIES = ("comfortable", "compact")
+MOTIONS = ("reduced", "normal", "expressive")
+CARD_KEYS = ("quick_stats", "balance", "week", "holidays", "history")
+
+# Tipos de día (2.1). Cómo computa cada uno lo decide el usuario:
+#   "none"   → sin objetivo: no genera déficit y reduce el objetivo semanal.
+#   "target" → conserva el objetivo: si no se trabaja, cuenta como déficit.
+DAY_TYPES = ("holiday", "vacation", "dayoff", "permit", "sick", "custom")
+DAY_TYPE_MODES = ("none", "target")
+MAX_LABEL = 80
+
+# Avisos (2.1): minutos antes de completar la jornada.
+MAX_LEADS = 8
+WEEKLY_GOAL_MODES = ("auto", "custom")
+SETTINGS_VERSION = 3
+
+
 def _profile(start, end, target, min_break, optional):
     return {"start": start, "end": end, "target_minutes": target,
             "min_break_minutes": min_break, "optional_break_minutes": optional}
@@ -91,7 +111,7 @@ def default_settings() -> dict:
     weekday = lambda workday, profile, mode="office": {  # noqa: E731
         "workday": workday, "profile": profile, "mode": mode}
     return {
-        "version": 2,
+        "version": SETTINGS_VERSION,
         "profiles": {
             "normal": _profile("08:00", "18:00", 510, 60, 30),
             "friday": _profile("08:00", "15:00", 420, 0, 0),
@@ -113,6 +133,18 @@ def default_settings() -> dict:
         "duration_format": "hms",
         "language": "es",
         "shortcuts": dict(DEFAULT_SHORTCUTS),
+        "accent": "teal",
+        "density": "comfortable",
+        "motion": "normal",
+        "cards": {key: True for key in CARD_KEYS},
+        "weekly_goal": {"mode": "auto", "custom_minutes": 2400, "compensation": True},
+        "day_types": {key: "none" for key in DAY_TYPES},
+        "notifications": {
+            "in_app": True, "desktop": False, "sound": False,
+            "leads": [], "done": True,
+            "break_pending": False, "break_pending_after": 300,
+            "break_min_done": False, "break_over": False,
+        },
     }
 
 
@@ -241,7 +273,64 @@ def normalize_settings(raw: dict | None, base: dict | None = None) -> dict:
     for combo in used:
         if used.count(combo) > 1:
             raise ValidationError("err.dup_shortcut", combo=combo)
-    result["version"] = 2
+
+    for field, allowed in (("accent", ACCENTS), ("density", DENSITIES), ("motion", MOTIONS)):
+        if field in raw:
+            if raw[field] not in allowed:
+                raise ValidationError("err.bad_value", field=field)
+            result[field] = raw[field]
+
+    cards = raw.get("cards")
+    if cards is not None:
+        if not isinstance(cards, dict):
+            raise ValidationError("err.bad_value", field="cards")
+        for key, value in cards.items():
+            if key in CARD_KEYS:
+                result["cards"][key] = bool(value)
+
+    goal = raw.get("weekly_goal")
+    if goal is not None:
+        if not isinstance(goal, dict):
+            raise ValidationError("err.bad_value", field="weekly_goal")
+        if "mode" in goal:
+            if goal["mode"] not in WEEKLY_GOAL_MODES:
+                raise ValidationError("err.bad_value", field="weekly_goal.mode")
+            result["weekly_goal"]["mode"] = goal["mode"]
+        if "custom_minutes" in goal:
+            result["weekly_goal"]["custom_minutes"] = _int_in_range(
+                goal["custom_minutes"], "@label.weekly_goal", 0, 7 * 1440)
+        if "compensation" in goal:
+            result["weekly_goal"]["compensation"] = bool(goal["compensation"])
+
+    types = raw.get("day_types")
+    if types is not None:
+        if not isinstance(types, dict):
+            raise ValidationError("err.bad_value", field="day_types")
+        for key, value in types.items():
+            if key not in DAY_TYPES:
+                continue
+            if value not in DAY_TYPE_MODES:
+                raise ValidationError("err.bad_value", field=f"day_types.{key}")
+            result["day_types"][key] = value
+
+    notes = raw.get("notifications")
+    if notes is not None:
+        if not isinstance(notes, dict):
+            raise ValidationError("err.bad_value", field="notifications")
+        target = result["notifications"]
+        for key in ("in_app", "desktop", "sound", "done", "break_pending", "break_min_done", "break_over"):
+            if key in notes:
+                target[key] = bool(notes[key])
+        if "break_pending_after" in notes:
+            target["break_pending_after"] = _int_in_range(
+                notes["break_pending_after"], "@label.break_pending_after", 15, 720)
+        if "leads" in notes:
+            leads = notes["leads"]
+            if not isinstance(leads, list) or len(leads) > MAX_LEADS:
+                raise ValidationError("err.bad_leads", max=MAX_LEADS)
+            target["leads"] = sorted({_int_in_range(m, "@label.lead", 1, 480) for m in leads}, reverse=True)
+
+    result["version"] = SETTINGS_VERSION
     return result
 
 
@@ -300,6 +389,96 @@ def month_dates(year: int, month: int) -> list[date]:
     return [date(year, month, d) for d in range(1, monthrange(year, month)[1] + 1)]
 
 
+# ------------------------------------------------- calendario (tipos de día)
+#
+# calendar.json guarda los días especiales, separados de los fichajes:
+#   {"version": 1,
+#    "days": {"2026-12-08": {"type": "holiday", "label": "Inmaculada"}, ...},
+#    "recurring": {"12-25": {"label": "Navidad"}, ...}}     ← festivos de cada año
+# Un día concreto tiene prioridad sobre un festivo recurrente.
+
+CALENDAR_VERSION = 1
+MAX_CALENDAR_DAYS = 5000
+_MD_RE = re.compile(r"^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$")
+
+
+def default_calendar() -> dict:
+    return {"version": CALENDAR_VERSION, "days": {}, "recurring": {}}
+
+
+def clean_label(value) -> str:
+    label = str(value or "").strip()
+    if len(label) > MAX_LABEL:
+        raise ValidationError("err.label_too_long", max=MAX_LABEL)
+    return label
+
+
+def valid_month_day(value) -> str:
+    text = str(value or "")
+    if not _MD_RE.match(text):
+        raise ValidationError("err.bad_month_day", value=value)
+    month, day = map(int, text.split("-"))
+    if day > monthrange(2024, month)[1]:          # 2024 es bisiesto: admite el 29 de febrero
+        raise ValidationError("err.bad_month_day", value=value)
+    return text
+
+
+def clean_mark(raw) -> dict:
+    """Valida una marca de día: {"type", "label"?}."""
+    if not isinstance(raw, dict) or raw.get("type") not in DAY_TYPES:
+        raise ValidationError("err.bad_day_type")
+    mark = {"type": raw["type"]}
+    label = clean_label(raw.get("label"))
+    if label:
+        mark["label"] = label
+    return mark
+
+
+def normalize_calendar(raw) -> dict:
+    """Valida calendar.json completo (al cargarlo o al restaurar una copia)."""
+    if raw is None:
+        return default_calendar()
+    if not isinstance(raw, dict):
+        raise ValidationError("err.bad_calendar")
+    version = raw.get("version", CALENDAR_VERSION)
+    if not isinstance(version, int) or not 1 <= version <= CALENDAR_VERSION:
+        raise ValidationError("err.bad_calendar")
+    days, recurring = raw.get("days") or {}, raw.get("recurring") or {}
+    if not isinstance(days, dict) or not isinstance(recurring, dict) \
+            or len(days) + len(recurring) > MAX_CALENDAR_DAYS:
+        raise ValidationError("err.bad_calendar")
+    result = default_calendar()
+    for key, mark in days.items():
+        result["days"][_parse_date(key, "@label.date").isoformat()] = clean_mark(mark)
+    for key, item in recurring.items():
+        if not isinstance(item, dict):
+            raise ValidationError("err.bad_calendar")
+        entry = {}
+        label = clean_label(item.get("label"))
+        if label:
+            entry["label"] = label
+        result["recurring"][valid_month_day(key)] = entry
+    return result
+
+
+def day_mark(day: date, calendar: dict | None) -> dict | None:
+    """Marca que corresponde a un día (concreta o festivo recurrente), o None."""
+    if not calendar:
+        return None
+    mark = calendar.get("days", {}).get(day.isoformat())
+    if mark:
+        return mark
+    rec = calendar.get("recurring", {}).get(day.strftime("%m-%d"))
+    if rec is not None:
+        return {"type": "holiday", "recurring": True, **rec}
+    return None
+
+
+def mark_frees_day(mark: dict | None, settings: dict) -> bool:
+    """¿Este tipo de día elimina el objetivo (según la configuración del usuario)?"""
+    return bool(mark) and settings.get("day_types", {}).get(mark["type"], "none") == "none"
+
+
 # --------------------------------------------------------------- registros
 
 def resolve_profile(day: date, settings: dict, override: str | None = None) -> tuple[str, str]:
@@ -315,13 +494,18 @@ def resolve_profile(day: date, settings: dict, override: str | None = None) -> t
     return weekday["profile"], "weekly"
 
 
-def snapshot_for(day: date, settings: dict, override: str | None = None) -> dict:
-    """Perfil y objetivos que corresponden a una fecha según los ajustes actuales."""
+def snapshot_for(day: date, settings: dict, override: str | None = None, mark: dict | None = None) -> dict:
+    """Perfil y objetivos que corresponden a una fecha según los ajustes actuales.
+
+    `mark` (festivo, vacaciones…) solo se pasa cuando debe aplicarse: entonces un
+    tipo configurado como «sin objetivo» deja el día sin objetivo.
+    """
     weekday = settings["weekdays"][str(day.weekday())]
     key, source = resolve_profile(day, settings, override)
     profile = settings["profiles"][key]
     # Un día no laborable no tiene objetivo, salvo que se le asigne un perfil a mano.
-    active = weekday["workday"] or source == "manual"
+    active = (weekday["workday"] or source == "manual") and not (
+        source != "manual" and mark_frees_day(mark, settings))
     return {
         "profile": key,
         "profile_source": source,
@@ -332,23 +516,33 @@ def snapshot_for(day: date, settings: dict, override: str | None = None) -> dict
     }
 
 
-def new_record(day: date, settings: dict) -> dict:
-    return {
-        **snapshot_for(day, settings),
+def new_record(day: date, settings: dict, calendar: dict | None = None) -> dict:
+    """Jornada nueva. En un día marcado (festivo, vacaciones…) adopta las reglas de su tipo
+    y lo anota en «day_type», para que la jornada conserve esa decisión."""
+    mark = day_mark(day, calendar)
+    record = {
+        **snapshot_for(day, settings, mark=mark),
         "clock_in": None,
         "clock_out": None,
         "breaks": [],
         "notes": "",
         "custom_targets": False,
     }
+    if mark:
+        record["day_type"] = mark["type"]
+    return record
 
 
-def refresh_open_record(record: dict, day: date, settings: dict) -> bool:
+def refresh_open_record(record: dict, day: date, settings: dict, calendar: dict | None = None) -> bool:
     """Aplica ajustes nuevos a una jornada aún abierta (no a las cerradas)."""
     if record.get("clock_out") or record.get("custom_targets"):
         return False
     override = record.get("profile") if record.get("profile_source") == "manual" else None
-    snap = snapshot_for(day, settings, override)
+    # Solo se respeta el tipo de día que la propia jornada ya adoptó.
+    mark = day_mark(day, calendar) if record.get("day_type") else None
+    if mark and mark["type"] != record["day_type"]:
+        mark = {"type": record["day_type"]}
+    snap = snapshot_for(day, settings, override, mark)
     changed = False
     for key in (*TARGET_KEYS, "ref_start", "ref_end", "profile", "profile_source"):
         if record.get(key) != snap[key]:
@@ -373,14 +567,21 @@ def _completion_instant(clock_in, breaks, end, target) -> datetime | None:
     return None
 
 
-def compute_day(day: date, record: dict | None, settings: dict, now: datetime) -> dict:
-    """Calcula el estado completo de una jornada en el instante `now`."""
+def compute_day(day: date, record: dict | None, settings: dict, now: datetime,
+                calendar: dict | None = None) -> dict:
+    """Calcula el estado completo de una jornada en el instante `now`.
+
+    Un día sin registro marcado como festivo, vacaciones… sigue las reglas de su
+    tipo. Un día con registro usa los objetivos guardados en él (que ya reflejan
+    el tipo si la jornada lo adoptó): marcar un día nunca reescribe el pasado.
+    """
     now = now.astimezone(UTC)
     today = local_date(now)
     weekday = settings["weekdays"][str(day.weekday())]
     registered = record is not None
+    mark = day_mark(day, calendar)
     auto = snapshot_for(day, settings)
-    params = record if registered else auto
+    params = record if registered else (snapshot_for(day, settings, mark=mark) if mark else auto)
 
     mode = params.get("mode", "office")
     off = mode == "off"
@@ -462,14 +663,20 @@ def compute_day(day: date, record: dict | None, settings: dict, now: datetime) -
     # Balance: solo cuenta lo cerrado. Una jornada en curso aporta su tiempo
     # extra, pero lo que le falta es "pendiente", no déficit.
     counted = status == "finished" or in_progress
+    # Ausencia ya pasada de un tipo que conserva el objetivo: cuenta como déficit.
+    absence_deficit = bool(mark and not registered and target and day < today and clock_in is None)
     if status == "finished":
         balance = worked - target
     elif in_progress:
         balance = extra
+    elif absence_deficit:
+        counted, balance = True, -float(target)
     else:
         balance = 0.0
 
-    if clock_in is None:
+    if absence_deficit:
+        color = "red"
+    elif clock_in is None:
         color = "gray"
     elif status == "finished":
         color = "green" if worked >= target else "red"
@@ -527,8 +734,11 @@ def compute_day(day: date, record: dict | None, settings: dict, now: datetime) -
         "counted": counted,
         "balance_s": r(balance),
         "pending_s": r(remaining) if in_progress else 0.0,
-        "deficit_s": r(remaining) if status == "finished" else 0.0,
+        "deficit_s": r(remaining) if status == "finished" else (r(target) if absence_deficit else 0.0),
         "flags": flags,
+        "day_type": mark["type"] if mark else (record or {}).get("day_type"),
+        "day_label": (mark or {}).get("label", ""),
+        "day_recurring": bool((mark or {}).get("recurring")),
         "notes": (record or {}).get("notes", ""),
         "custom_targets": bool((record or {}).get("custom_targets")),
     }
@@ -548,8 +758,9 @@ def summarize(days: list[dict], now: datetime) -> dict:
             if c["target_s"] and c["worked_s"] >= c["target_s"]:
                 completed += 1
         # Objetivo: días fichados + días laborables que aún no han llegado.
-        # Los pasados sin registrar no se cuentan (ni en objetivo ni en déficit).
-        if c["target_s"] and (has_clock or day >= today):
+        # Los pasados sin registrar no se cuentan (ni en objetivo ni en déficit),
+        # salvo las ausencias configuradas para conservar el objetivo.
+        if c["target_s"] and (has_clock or day >= today or c["counted"]):
             target += c["target_s"]
         if c["counted"]:
             balance += c["balance_s"]
@@ -568,11 +779,11 @@ def summarize(days: list[dict], now: datetime) -> dict:
 # ------------------------------------------------------- edición manual
 
 def build_record(day: date, payload: dict, existing: dict | None, settings: dict,
-                 now: datetime) -> dict:
+                 now: datetime, calendar: dict | None = None) -> dict:
     """Valida una edición completa de jornada y devuelve el registro a guardar."""
     if not isinstance(payload, dict):
         raise ValidationError("err.bad_data")
-    record = copy.deepcopy(existing) if existing else new_record(day, settings)
+    record = copy.deepcopy(existing) if existing else new_record(day, settings, calendar)
     limit = now.astimezone(UTC) + FUTURE_TOLERANCE
 
     mode = payload.get("mode", record.get("mode", "office"))
@@ -592,7 +803,8 @@ def build_record(day: date, payload: dict, existing: dict | None, settings: dict
     if override is not None and override not in PROFILES:
         raise ValidationError("err.bad_profile")
     profile_changed = existing is None or override != current
-    snap = snapshot_for(day, settings, override)
+    applied = {"type": record["day_type"]} if record.get("day_type") else None
+    snap = snapshot_for(day, settings, override, applied)
     previous = {key: record.get(key) for key in TARGET_KEYS}
     if profile_changed:
         # Nuevo perfil: se parte de sus valores (y de sus horas de referencia).
@@ -722,13 +934,13 @@ ACTIONS = ("start", "break_start", "break_end", "stop", "resume")
 
 
 def apply_action(action: str, day: date, record: dict | None, settings: dict,
-                 now: datetime) -> dict:
+                 now: datetime, calendar: dict | None = None) -> dict:
     """Aplica un botón de fichaje sobre la jornada de `day` con la hora `now`."""
     if action not in ACTIONS:
         raise ValidationError("err.unknown_action")
     now = now.astimezone(UTC).replace(microsecond=0)
     record = copy.deepcopy(record) if record else None
-    status = compute_day(day, record, settings, now)["status"]
+    status = compute_day(day, record, settings, now, calendar)["status"]
     stamp = iso(now)
 
     if action == "start":
@@ -736,7 +948,7 @@ def apply_action(action: str, day: date, record: dict | None, settings: dict,
             if record.get("clock_out"):
                 raise Conflict("conflict.finished")
             raise Conflict("conflict.started")
-        record = record or new_record(day, settings)
+        record = record or new_record(day, settings, calendar)
         if record.get("mode") == "off":
             record["mode"] = settings["weekdays"][str(day.weekday())]["mode"]
         record["clock_in"] = stamp

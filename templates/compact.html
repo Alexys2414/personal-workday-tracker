@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="{{ lang }}" data-theme="dark" data-build="{{ build }}" class="compact-page">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jornada</title>
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="{{ url_for('static', filename='img/jornada.svg') }}" type="image/svg+xml">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v=build) }}">
+  <script>
+    // Mismo arranque sin parpadeo que la vista completa.
+    try {
+      var t = localStorage.getItem('wt-theme') || 'system';
+      if (t === 'system') t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      var root = document.documentElement, look = JSON.parse(localStorage.getItem('wt-look') || '{}');
+      root.dataset.theme = t;
+      root.dataset.accent = look.accent || 'teal';
+      root.dataset.density = look.density || 'comfortable';
+      root.dataset.motion = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'reduced' : (look.motion || 'normal');
+    } catch (e) {}
+  </script>
+  <script id="i18n-data" type="application/json">{{ i18n|tojson }}</script>
+</head>
+<body class="compact-body">
+  {% include '_icons.html' %}
+
+  <main class="widget" id="widget" data-status="loading" aria-labelledby="cwCount">
+    <header class="widget-top">
+      <span class="status-pill" id="cwPill"><span class="dot"></span><span id="cwStatus">{{ t('status.loading') }}</span></span>
+      <span class="spacer"></span>
+      <button class="icon-btn small" id="cwPip" hidden title="{{ t('cm.pip') }}" aria-label="{{ t('cm.pip') }}"><svg><use href="#i-pin"/></svg></button>
+      <button class="icon-btn small" id="cwFull" title="{{ t('cw.full') }}" aria-label="{{ t('cw.full') }}"><svg><use href="#i-external"/></svg></button>
+    </header>
+
+    <div class="widget-count" role="timer" aria-live="off">
+      <span class="ring-label" id="cwLabel">{{ t('count.left') }}</span>
+      <span class="widget-time tabular" id="cwCount">--:--:--</span>
+    </div>
+
+    <div class="widget-progress">
+      <div class="widget-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="cwBar" aria-label="{{ t('cw.progress') }}"><span id="cwFill"></span></div>
+      <div class="widget-meta">
+        <span class="tabular" id="cwPct">0 %</span>
+        <span><span id="cwExitLabel">{{ t('cw.exit') }}</span> <strong class="tabular" id="cwExit">--:--</strong></span>
+      </div>
+    </div>
+
+    <div class="widget-action" id="cwAction"></div>
+  </main>
+
+  <div class="closed-screen" id="cwOffline" hidden>
+    <span class="brand-mark"><img src="{{ url_for('static', filename='img/jornada.svg') }}" alt=""></span>
+    <p class="muted">{{ t('banner.offline') }}</p>
+  </div>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <script src="{{ url_for('static', filename='js/i18n.js', v=build) }}"></script>
+  <script src="{{ url_for('static', filename='js/common.js', v=build) }}"></script>
+  <script src="{{ url_for('static', filename='js/notify.js', v=build) }}"></script>
+  <script src="{{ url_for('static', filename='js/compact.js', v=build) }}"></script>
+</body>
+</html>

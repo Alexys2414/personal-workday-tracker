@@ -14,29 +14,46 @@ from app import asset_build, create_app
 
 ROOT = Path(__file__).resolve().parent.parent
 JS = sorted((ROOT / "static/js").glob("*.js"))
-DYNAMIC_IDS = {"tlExit", "daylineScale", "scHud"}      # elementos que crea el propio JS
+DYNAMIC_IDS = {"tlExit", "daylineScale", "scHud",          # elementos que crea el propio JS
+               "bkGo", "bkConfirm", "compMinutes", "compDay"}
 
 
-def template_ids():
-    return re.findall(r'\bid="([^"]+)"', (ROOT / "templates/index.html").read_text(encoding="utf-8"))
+def template_ids(name="index.html"):
+    """ids de una plantilla, incluidas las que incorpora con {% include %}."""
+    text = (ROOT / "templates" / name).read_text(encoding="utf-8")
+    for inc in re.findall(r"{%\s*include\s+'([^']+)'\s*%}", text):
+        text += (ROOT / "templates" / inc).read_text(encoding="utf-8")
+    return re.findall(r'\bid="([^"]+)"', text)
+
+
+def scripts_of(name):
+    """Scripts que carga cada página: deben encontrar en ella todos los ids que usan."""
+    text = (ROOT / "templates" / name).read_text(encoding="utf-8")
+    return re.findall(r"filename='js/([\w.]+)'", text)
 
 
 class DomContract(unittest.TestCase):
     """El error «reading 'dataset' of null» venía de buscar elementos que la página no tenía."""
 
     def test_every_element_used_by_js_exists(self):
-        ids = set(template_ids())
-        for path in JS:
-            src = path.read_text(encoding="utf-8")
-            used = set(re.findall(r"""\$\(\s*['"`]#([\w-]+)""", src)) \
-                | set(re.findall(r"""getElementById\(\s*['"]([\w-]+)""", src)) \
-                | set(re.findall(r"""querySelector(?:All)?\(\s*['"`]#([\w-]+)""", src))
-            missing = sorted(used - ids - DYNAMIC_IDS)
-            self.assertEqual(missing, [], f"{path.name} usa ids que no existen en index.html")
+        pages = {"index.html": set(template_ids("index.html")), "compact.html": set(template_ids("compact.html"))}
+        checked = set()
+        for page, ids in pages.items():
+            for script in scripts_of(page):
+                path = ROOT / "static/js" / script
+                checked.add(path)
+                src = path.read_text(encoding="utf-8")
+                used = set(re.findall(r"""\$\(\s*['"`]#([\w-]+)""", src)) \
+                    | set(re.findall(r"""getElementById\(\s*['"]([\w-]+)""", src)) \
+                    | set(re.findall(r"""querySelector(?:All)?\(\s*['"`]#([\w-]+)""", src))
+                missing = sorted(used - ids - DYNAMIC_IDS)
+                self.assertEqual(missing, [], f"{script} usa ids que no existen en {page}")
+        self.assertEqual(set(JS) - checked, set(), "hay scripts que ninguna página carga")
 
     def test_no_duplicate_ids(self):
-        ids = template_ids()
-        self.assertEqual(sorted({i for i in ids if ids.count(i) > 1}), [])
+        for page in ("index.html", "compact.html"):
+            ids = template_ids(page)
+            self.assertEqual(sorted({i for i in ids if ids.count(i) > 1}), [], page)
 
     def test_tick_reschedules_before_painting(self):
         src = (ROOT / "static/js/app.js").read_text(encoding="utf-8")
