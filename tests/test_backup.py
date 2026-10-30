@@ -83,7 +83,7 @@ class BackupApi(AppCase, unittest.TestCase):
         self.assertTrue(p["overwrites"])
         self.assertEqual(p["counts"]["clocked_days"], 1)
         self.assertEqual(p["counts"]["recurring"], 1)
-        self.assertEqual(p["meta"]["schema_version"], 1)
+        self.assertEqual(p["meta"]["schema_version"], backup.SCHEMA_VERSION)
 
     def test_preview_never_writes(self):
         self.populate()

@@ -9,7 +9,7 @@
   <img alt="No Node.js" src="https://img.shields.io/badge/node.js-not%20needed-b5561a">
   <img alt="No database" src="https://img.shields.io/badge/data-local%20JSON-b5561a">
   <img alt="Languages: Spanish and English" src="https://img.shields.io/badge/languages-ES%20%C2%B7%20EN-946a00">
-  <img alt="Version 2.1" src="https://img.shields.io/badge/version-2.1-0f766e">
+  <img alt="Version 2.2" src="https://img.shields.io/badge/version-2.2-0f766e">
 </p>
 
 <p align="center">
@@ -19,6 +19,7 @@
 <p align="center">
   <a href="#quick-install-on-linux">Install</a> ·
   <a href="#using-jornada">Usage</a> ·
+  <a href="#tasks-and-time-booking-22">Tasks 2.2</a> ·
   <a href="#whats-new-in-jornada-21">New in 2.1</a> ·
   <a href="#keyboard-shortcuts">Shortcuts</a> ·
   <a href="#export-and-import">Export &amp; import</a> ·
@@ -45,7 +46,8 @@ JSON file and doesn't need administrator rights.
 5. [Quick install on Windows](#quick-install-on-windows)
 6. [Create a desktop shortcut](#create-a-desktop-shortcut)
 7. [Using Jornada](#using-jornada)
-8. [What's new in Jornada 2.1](#whats-new-in-jornada-21)
+8. [Tasks and time booking (2.2)](#tasks-and-time-booking-22)
+9. [What's new in Jornada 2.1](#whats-new-in-jornada-21)
    [Backups](#1-backup-and-restore) ·
    [Compact mode](#2-floating-compact-mode) ·
    [Alerts](#3-smart-alerts) ·
@@ -54,18 +56,18 @@ JSON file and doesn't need administrator rights.
    [Statistics](#6-advanced-statistics) ·
    [Weekly target](#7-weekly-target-and-simulated-compensation) ·
    [Personalisation](#8-visual-personalisation)
-9. [Standard and short-day schedules](#standard-and-short-day-schedules)
-10. [Keyboard shortcuts](#keyboard-shortcuts)
-11. [Export and import](#export-and-import)
-12. [Languages and themes](#languages-and-themes)
-13. [Storage and privacy](#storage-and-privacy)
-14. [Browser limitations](#browser-limitations)
-15. [Project structure](#project-structure)
-16. [Development and tests](#development-and-tests)
-17. [Troubleshooting](#troubleshooting)
-18. [Roadmap](#roadmap)
-19. [Contributing](#contributing)
-20. [License](#license)
+10. [Standard and short-day schedules](#standard-and-short-day-schedules)
+11. [Keyboard shortcuts](#keyboard-shortcuts)
+12. [Export and import](#export-and-import)
+13. [Languages and themes](#languages-and-themes)
+14. [Storage and privacy](#storage-and-privacy)
+15. [Browser limitations](#browser-limitations)
+16. [Project structure](#project-structure)
+17. [Development and tests](#development-and-tests)
+18. [Troubleshooting](#troubleshooting)
+19. [Roadmap](#roadmap)
+20. [Contributing](#contributing)
+21. [License](#license)
 
 ## Screenshots and demo
 
@@ -132,6 +134,7 @@ JSON file and doesn't need administrator rights.
 | 🌍 **Spanish and English** | Switches instantly, no page reload. |
 | 🌗 **Light and dark** | Light, dark or system theme; layouts adapted to desktop, tablet and phone. |
 | ♿ **Accessible** | Full keyboard navigation with visible focus, touch-friendly buttons and support for `prefers-reduced-motion`. |
+| 🎫 **Tasks and booking** *(2.2)* | Tickets with estimates, a one-click switching timer, automatic pause on breaks and a ready-to-book summary (copy, CSV, decimal). |
 | 💾 **Full backups** *(2.1)* | One JSON with days, settings and holidays; validated restore with an automatic copy first. |
 | 🪟 **Compact mode** *(2.1)* | A 360 px widget in the same tab, a separate window or floating on top (where the browser supports it). |
 | 🔔 **Alerts** *(2.1)* | At 30, 15, 5, 1 min or your own; day complete and breaks. In-app, desktop or sound. |
@@ -251,6 +254,140 @@ and in the calendar, where each day shows its hours and its overtime or shortfal
 - There are quick suggestions, such as "Team meeting" or "Doctor's appointment". Notes show subtly in the calendar and are included in exports.
   **They never change any time calculation.**
 
+## Tasks and time booking (2.2)
+
+Jornada also tells you **which tickets** you spent your time on, how much is left of each estimate and which hours you
+need to copy into your company's system. It's **personal, local** tracking: it doesn't connect to Jira or any corporate app.
+
+> [!IMPORTANT]
+> **Clocking your workday and booking hours are different things.** Clock-ins (start, breaks, finish) measure your workday;
+> tasks split that time across tickets. Neither ever changes the other: if they don't match, Jornada warns you and lets you fix it.
+
+<p align="center">
+  <img src="docs/screenshots/tasks-strip.png" alt="Dashboard strip with the active task, its timer and the Switch and Pause buttons" width="860">
+</p>
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/tasks.png" alt="Task cards with estimate, progress and switch buttons"><br><sub><b>Tasks</b>: estimate, progress and one-click switching.</sub></td>
+    <td width="50%"><img src="docs/screenshots/tasks-day.png" alt="Day view: effective work vs booked time and the day's entries"><br><sub><b>Day</b>: effective work vs booked time, entry by entry.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/tasks-week.png" alt="Weekly booking by day, project and ticket"><br><sub><b>Week</b>: booking target, by project and by ticket.</sub></td>
+    <td><img src="docs/screenshots/tasks-report.png" alt="Booking summary grouped by day with booked or pending status"><br><sub><b>Booking summary</b>: copy, CSV and mark as booked.</sub></td>
+  </tr>
+</table>
+
+<sub>All tickets in the screenshots (DEMO-…) are fictitious. Screenshots show the Spanish interface.</sub>
+
+### Adding tickets
+
+The **Tasks** button (ticket icon) in the top bar → **New task**.
+
+- Ticket **key** (for example `DEMO-101`). It's optional: without a key it's *internal work*, such as meetings or training.
+- **Title**, **project** (optional; suggests the ones you already use), **estimate** in H:MM, **colour** and **notes**.
+- **Favourite** ⭐: shown first in the picker and on the dashboard strip.
+- Keys are unique; Jornada stores them in upper case.
+
+### Recording time with the timer
+
+- **Start** from a card, the dashboard strip or the **quick picker**
+  (<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd>: type part of the key or title and press <kbd>Enter</kbd>).
+- **Switch task** in one or two clicks: the previous entry closes automatically and a new one starts. **Two tasks never run at once.**
+- **Pause:** the strip button or <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>.
+- The counter is calculated from saved timestamps: closing the browser or shutting down doesn't affect it.
+
+With your clock-ins:
+
+| You | What happens to the task |
+|---|---|
+| **Start a break** | The timer pauses: **breaks aren't booked**. |
+| **End the break** | The strip offers to **Continue** the same task or pick **Another task**. It doesn't resume on its own. |
+| **Finish the day** | The running entry is closed. |
+| Start a task **without a workday running** | Jornada asks: *Start day and task* or *Task only*. |
+| Start a task **during a break** | It asks whether to end the break and start. |
+
+Example: 08:00–10:00 `DEMO-123`, 10:00–14:00 `DEMO-145` and 15:00–17:00 `DEMO-170` give three entries and **8 h booked**.
+
+### Adding time manually
+
+- **+15**, **+30** or **+1 h** on each card add time **today**.
+- **Add entry** (*Day* view): any past date, with a duration (15 min, 30 min, 1 h, 2 h or your own) or start and end times.
+  Handy for the ticket you forgot to track yesterday.
+- Manual entries are **labelled "Manual"** in every view and in the summary.
+
+### Estimates and progress
+
+Each card shows time recorded, estimate, percentage and what's left:
+`DEMO-123 · 5 h 30 min / 8 h · 68.75 % · 2 h 30 min left`.
+Estimates are **guidance only**: you can exceed them and Jornada shows the overrun (with a hatched bar) without blocking anything.
+
+### Fixing entries
+
+From the **Day** view or **Sessions** (list icon on the card), press ✏️ on an entry:
+
+- **Edit** its time, duration, note or task (**move** it to another ticket).
+- **Split:** pick where to cut and which task gets the second part. Both parts **always add up to the original time**.
+- **Delete:** always asks for confirmation. Deleting a task that has entries also needs explicit confirmation.
+- **No overlaps:** two timed entries can never overlap; Jornada tells you which ones clash.
+- **Complete or reopen** a task from its card or editor.
+
+### Mismatches with your clock-ins
+
+The **Day** view compares **effective work** from your clock-ins with time **booked** and warns when:
+
+- you've booked **more** than your effective work;
+- an entry falls **outside work** (during a break, before clock-in or after clock-out), for example after correcting a clock-in;
+- a timer is still running **from another day**;
+- you used the timer on a day **without a clock-in**.
+
+**Fit entries to the clock-in…** proposes trimming the excess, tells you how much and **only applies it if you confirm**.
+Correcting a clock-in never changes entries by itself.
+
+### Checking your bookings
+
+- **Day:** effective work, booked time, **unassigned** time, the day bar (clock-ins on top, tasks below), entries and split by task.
+- **Week:** hours booked Monday to Sunday vs effective work, by project and by ticket.
+  The **booking target** (40 h by default, in *Settings → Schedule*) is **independent** of your schedules' working hours.
+  Until the week ends, what's missing is shown as *pending*, never as a deficit.
+- **Main dashboard:** the strip shows today's booked time and what's still unassigned.
+
+### Booking summary and export
+
+The **Booking summary** tab:
+
+| Date | Ticket | Time |
+|---|---|---|
+| 29/10/2026 | DEMO-123 | 2 h |
+| 29/10/2026 | DEMO-145 | 4 h |
+| 29/10/2026 | DEMO-170 | 2 h |
+
+- Filter by dates (Today, Yesterday, This week, Last week, This month or a range) and **group by day or by ticket**.
+- Times in **hours and minutes** or **decimal** (1 h 30 min = 1.50 h, rounded to hundredths). Your choice is remembered.
+- **Copy row** or **Copy summary**: tab-separated text, ready to paste into a spreadsheet or your company's form.
+- **CSV:** UTF-8 with BOM, `;`-separated, works with Excel and LibreOffice.
+- Mark each row as **"Already booked"** or **"To be booked"**, or all at once.
+  It's **just a personal mark**: Jornada sends nothing to Jira or any other app.
+- The running entry appears once you close it.
+
+### Shortcuts
+
+| Action | Default |
+|---|---|
+| Pick or switch task | <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>K</kbd> |
+| Pause or resume the task | <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>P</kbd> |
+
+They can be changed in *Settings → Shortcuts*, like the others.
+
+### Privacy and limitations
+
+- Tickets and descriptions may be work information: **everything stays in `data/tasks.json`** on your computer.
+  No telemetry, no external connections. The `.gitignore` excludes `data/`, `tasks.json`, backups and exported CSVs.
+- Tasks and their entries are included in the **full backup** (schema 2). Backups from 2.1 can still be restored.
+- **No integration** with Jira or your company's booking system: copying, exporting and marking are manual, on purpose.
+- The timer can only run on one task. An entry that crosses midnight counts on the day it started.
+- The dashboard strip can be hidden in *Settings → Appearance → Cards* ("Active task").
+
 ## What's new in Jornada 2.1
 
 Eight new features, all optional and grouped in *Settings* or their own views so the dashboard stays clean.
@@ -274,27 +411,29 @@ None of them changes how existing days are calculated, and nothing needs install
 - If the data changes between the preview and the confirmation (for example, you clock in from another window), you're asked to start again.
 
 <details>
-<summary><b>File format (schema version 1)</b></summary>
+<summary><b>File format (schema version 2)</b></summary>
 
 ```json
 {
   "format": "jornada-backup",
-  "schema_version": 1,
-  "app_version": "2.1.0",
+  "schema_version": 2,
+  "app_version": "2.2.0",
   "created_at": "2026-10-30T18:05:00+01:00",
   "checksum": "sha256:…",
   "counts": { "days": 120, "calendar_days": 14, "recurring": 9, "…": "…" },
   "data": {
     "records":  { "version": 1, "days": { "2026-10-29": { "clock_in": "…", "breaks": [ … ] } } },
     "settings": { "version": 3, "profiles": { … }, "accent": "teal", "notifications": { … } },
-    "calendar": { "version": 1, "days": { "2026-12-08": { "type": "holiday", "label": "…" } }, "recurring": { "12-25": { "label": "Christmas" } } }
+    "calendar": { "version": 1, "days": { "2026-12-08": { "type": "holiday", "label": "…" } }, "recurring": { "12-25": { "label": "Christmas" } } },
+    "tasks":    { "version": 1, "tasks": { "t_…": { "key": "DEMO-101", "…": "…" } }, "entries": { "e_…": { "…": "…" } } }
   }
 }
 ```
 
 - `checksum` is the SHA-256 of `data` serialised canonically (sorted keys, no spaces). It's optional on restore,
   but if present it must match.
-- Future versions can read this schema and migrate it. This version rejects a `schema_version` greater than 1.
+- Future versions can read this schema and migrate it. This version rejects a `schema_version` greater than 2.
+- Schema 2 (Jornada 2.2) adds `tasks`. Schema 1 backups (2.1) restore with an empty task list.
 - Backups from 2.0 (version 2 settings, no `calendar`) are accepted and migrated on restore.
 </details>
 
@@ -447,6 +586,8 @@ The **This week** card on the dashboard and *Settings → Schedule → Weekly ta
 | Toggle light/dark theme | <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>T</kbd> |
 | Edit today | <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>E</kbd> |
 | Simulate workday *(2.1)* | <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>S</kbd> |
+| Pick or switch task *(2.2)* | <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>K</kbd> |
+| Pause or resume the task *(2.2)* | <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>P</kbd> |
 
 The defaults follow the Spanish action names (I = *Iniciar*, D = *Descanso*…); reassign them to whatever suits you.
 
@@ -504,6 +645,7 @@ translate it and add its code to `LANGUAGES` in [`i18n.py`](i18n.py).
 | `data/records.json` | Your days: entries, breaks, notes, schedule and target for each day |
 | `data/settings.json` | Schedules, week, summer hours, shortcuts, language, appearance, alerts, weekly target and day-type rules |
 | `data/calendar.json` *(2.1)* | Holidays (one-off and recurring), vacation and absences |
+| `data/tasks.json` *(2.2)* | Tasks (tickets) and their time entries, in one file so they can never get out of sync |
 | `data/backups/` | Automatic copies: before importing, restoring, applying a day type to existing days and migrating settings |
 
 Holidays have their own file because they're data that grows over the years, not settings. The new preferences
@@ -539,6 +681,7 @@ jornada/
 ├── insights.py            Simulator, weekly target, compensation and statistics (2.1, pure)
 ├── daymarks.py            Vacation ranges and holiday import (2.1, pure)
 ├── backup.py              Full-backup format and validation (2.1)
+├── tasks.py               Tasks, timer, entries, summaries and booking (2.2, pure)
 ├── csvio.py               CSV export and import
 ├── i18n.py                Server-side translations (same JSON files as the browser)
 ├── storage.py             JSON with atomic writes, recovery and all-or-nothing multi-file writes
@@ -549,7 +692,7 @@ jornada/
 │   └── report.html        Printable A4 report
 ├── static/
 │   ├── css/style.css      Visual system: tokens, accents, density, states, responsive and motion
-│   ├── js/                common.js · app.js · notify.js · calendar.js · insights.js · compact.js ·
+│   ├── js/                common.js · app.js · notify.js · calendar.js · insights.js · tasks.js · compact.js ·
 │   │                      i18n.js · shortcuts.js · datatools.js (no frameworks)
 │   ├── i18n/              es.json · en.json
 │   ├── fonts/             Plus Jakarta Sans (OFL)
@@ -566,7 +709,7 @@ Times are read in `Europe/Madrid`, daylight-saving changes included. The interfa
 ## Development and tests
 
 ```bash
-python3 -m unittest -v        # 179 tests
+python3 -m unittest -v        # 208 tests
 python3 app.py --open         # manual start
 python3 app.py --port 9000    # different preferred port (or PORT=9000)
 WORKTIME_DATA_DIR=/tmp/test python3 app.py   # test data in another folder
@@ -590,6 +733,9 @@ The tests cover:
   vacation weeks and compensation.
 - **Personalisation, alerts and compact mode (2.1):** persistence, accent contrast, reduced motion, no duplicated actions
   across windows, and the alert planner **run in headless Chrome** (no Node.js).
+- **Tasks (2.2):** timer, automatic switching, pause on breaks, end of day, several sessions and days,
+  editing, splitting and moving entries, overlaps, exceeded estimates, daily and weekly summaries,
+  decimal hours, persistence after restart, backups (schemas 1 and 2) and 2.1 data without `tasks.json`.
 - **Real browser (2.1):** if Chrome or Chromium is available, the dashboard, simulator, statistics, settings and compact view are
   loaded with fictitious data and checked for JavaScript errors. Otherwise these tests are skipped.
 

@@ -76,6 +76,7 @@ async function loadState() {
   renderStatic();
   if (window.renderWeekly) renderWeekly();
   if (window.renderUpcoming) renderUpcoming();
+  if (window.renderStrip) renderStrip();
   tick();
 }
 
@@ -120,7 +121,7 @@ function refreshAll() {
       refreshAgain = false;
       try {
         await loadState();
-        await Promise.all([loadMonth(), loadWeek()]);
+        await Promise.all([loadMonth(), loadWeek(), window.loadTasks ? loadTasks() : null]);
       } catch (e) {
         toast(e.message, 'err');
       }
@@ -165,6 +166,7 @@ function tick() {
   renderDayline(d, l);
   renderStats(d, l);
   if (window.renderWeeklyLive) renderWeeklyLive(d, l);
+  if (window.renderTaskLive) renderTaskLive();
   checkAlerts(d, l);
 
   const exitEl = $('#tlExit');
@@ -592,6 +594,8 @@ async function doAction(action, button) {
     }[action];
     toast(msg, 'ok');
     syncSend();
+    // Las tareas reaccionan al fichaje (pausa en el descanso, cierre al finalizar): ver tasks.js.
+    window.dispatchEvent(new CustomEvent('jornada:clock', { detail: { action, res } }));
   } catch (e) {
     toast(e.message, e.status === 409 ? 'warn' : 'err', 5000);
   } finally {
@@ -1149,6 +1153,7 @@ function fillSettingsForm() {
   setSegment($('#sGoalMode'), s.weekly_goal.mode);
   $('#sGoalCustom').value = minutesToHM(s.weekly_goal.custom_minutes);
   $('#sCompensation').checked = s.weekly_goal.compensation;
+  $('#sTaskGoal').value = minutesToHM(s.tasks.weekly_goal_minutes);
   updateGoalForm();
 
   // Apariencia
@@ -1219,6 +1224,8 @@ function collectLook() {
 function collectExtras() {
   const custom = hmToMinutes($('#sGoalCustom').value);
   if ($('#sGoalMode').dataset.value === 'custom' && custom === null) throw new Error(t('goal.fmt'));
+  const taskGoal = hmToMinutes($('#sTaskGoal').value);
+  if (taskGoal === null) throw new Error(t('goal.fmt'));
   const after = hmToMinutes($('#nBreakAfter').value);
   if ($('#nBreakPending').checked && (after === null || after < 15)) throw new Error(t('na.after_fmt'));
   return {
@@ -1238,6 +1245,7 @@ function collectExtras() {
       break_min_done: $('#nBreakMin').checked,
       break_over: $('#nBreakOver').checked,
     },
+    tasks: { weekly_goal_minutes: taskGoal },
     ...collectLook(),
     day_types: window.dayTypesDraft ? dayTypesDraft() : undefined,
   };
@@ -1605,6 +1613,10 @@ function openFromHash() {
   else if (view === 'simulate' && window.openSimulator) openSimulator(arg === 'tomorrow' ? 'tomorrow' : 'today');
   else if (view === 'stats' && window.openStats) openStats();
   else if (view === 'mark' && arg && window.openMark) openMark(arg);
+  else if (view === 'tasks' && arg === 'new' && window.openTaskEditor) openTaskEditor();
+  else if (view === 'tasks' && window.openTasks) openTasks(arg || 'tasks');
+  else if (view === 'entry' && window.openEntry) loadTasks().then(() => openEntry());
+  else if (view === 'picker' && window.openPicker) openPicker();
 }
 
 function shiftMonth(delta) {
@@ -1654,7 +1666,7 @@ async function init() {
   state.selected = today;
   state.weekDate = today;
   state.cal = { year: Number(today.slice(0, 4)), month: Number(today.slice(5, 7)) };
-  await Promise.all([loadMonth(), loadWeek()]).catch((e) => toast(e.message, 'err'));
+  await Promise.all([loadMonth(), loadWeek(), window.loadTasks ? loadTasks() : null]).catch((e) => toast(e.message, 'err'));
 
   // Tick alineado al cambio de segundo (los fichajes se guardan en segundos exactos).
   // El siguiente se programa antes de pintar: un fallo en un fotograma se ve en la

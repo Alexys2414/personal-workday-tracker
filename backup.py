@@ -1,22 +1,24 @@
-"""Copia de seguridad completa en un único JSON (Jornada 2.1).
+"""Copia de seguridad completa en un único JSON (Jornada 2.1; tareas desde 2.2).
 
-Formato (schema_version 1):
+Formato (schema_version 2):
 
     {
       "format": "jornada-backup",
-      "schema_version": 1,
-      "app_version": "2.1.0",
+      "schema_version": 2,
+      "app_version": "2.2.0",
       "created_at": "2026-10-30T18:05:00+01:00",
       "checksum": "sha256:…",            ← de «data» serializado de forma canónica
       "counts": {"days": 120, "calendar_days": 14, "recurring": 9},
       "data": {
         "records":  { contenido de records.json },
         "settings": { contenido de settings.json },
-        "calendar": { contenido de calendar.json }
+        "calendar": { contenido de calendar.json },
+        "tasks":    { contenido de tasks.json }          ← desde el esquema 2
       }
     }
 
-Compatibilidad: una versión futura de Jornada podrá leer este archivo y migrarlo;
+Compatibilidad: las copias de esquema 1 (Jornada 2.1, sin tareas) se aceptan y
+restauran con una lista de tareas vacía. Una versión futura de Jornada podrá leer este archivo y migrarlo;
 esta versión rechaza copias con un schema_version mayor que el suyo.
 La validación es completa antes de escribir nada (ver app.py, restauración).
 """
@@ -27,13 +29,14 @@ import json
 from datetime import date, datetime
 
 import core
+import tasks as tasks_mod
 from core import ValidationError
 
 FORMAT = "jornada-backup"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2          # 2 (Jornada 2.2): añade data.tasks; las copias de esquema 1 se siguen aceptando
 MAX_BYTES = 10 * 1024 * 1024
 TOP_KEYS = {"format", "schema_version", "app_version", "created_at", "checksum", "counts", "data"}
-DATA_KEYS = {"records", "settings", "calendar"}
+DATA_KEYS = {"records", "settings", "calendar", "tasks"}
 RECORD_KEYS = {"clock_in", "clock_out", "breaks", "notes", "mode", "custom_targets", "profile",
                "profile_source", "ref_start", "ref_end", "day_type", *core.TARGET_KEYS}
 BREAK_KEYS = {"start", "end", "note"}
@@ -44,8 +47,10 @@ def checksum(data: dict) -> str:
     return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-def build(records: dict, settings: dict, calendar: dict, app_version: str, now: datetime) -> dict:
-    data = {"records": records, "settings": settings, "calendar": calendar}
+def build(records: dict, settings: dict, calendar: dict, app_version: str, now: datetime,
+          tasks: dict | None = None) -> dict:
+    data = {"records": records, "settings": settings, "calendar": calendar,
+            "tasks": tasks if tasks is not None else tasks_mod.default_data()}
     return {
         "format": FORMAT,
         "schema_version": SCHEMA_VERSION,
@@ -64,6 +69,7 @@ def filename(now: datetime) -> str:
 def counts(data: dict) -> dict:
     days = data["records"].get("days", {})
     calendar = data.get("calendar") or {}
+    tasks = data.get("tasks") or {}
     return {
         "days": len(days),
         "clocked_days": sum(1 for r in days.values() if r.get("clock_in")),
@@ -72,6 +78,8 @@ def counts(data: dict) -> dict:
         sum(1 for r in days.values() for b in (r.get("breaks") or []) if b.get("note")),
         "calendar_days": len(calendar.get("days", {})),
         "recurring": len(calendar.get("recurring", {})),
+        "tasks": len(tasks.get("tasks", {})),
+        "task_entries": len(tasks.get("entries", {})),
         "first": min(days) if days else None,
         "last": max(days) if days else None,
     }
@@ -167,7 +175,8 @@ def parse(text: str) -> dict:
         _fail("settings")
     settings = core.normalize_settings(data["settings"])      # migra ajustes antiguos y valida
     calendar = core.normalize_calendar(data.get("calendar"))
-    clean = {"records": records, "settings": settings, "calendar": calendar}
+    tasks = tasks_mod.normalize(data.get("tasks"))          # esquema 1: sin tareas → vacío
+    clean = {"records": records, "settings": settings, "calendar": calendar, "tasks": tasks}
     return {
         "data": clean,
         "meta": {"app_version": str(raw.get("app_version", "?"))[:20],

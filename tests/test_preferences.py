@@ -117,7 +117,7 @@ class StyleContract(unittest.TestCase):
     def test_hidden_cards_never_include_main_panel(self):
         html = (ROOT / "templates/index.html").read_text(encoding="utf-8")
         cards = set(re.findall(r'data-card="([\w_]+)"', html))
-        self.assertEqual(cards, {"week", "holidays", "history"})       # estadísticas: por panel, en JS
+        self.assertEqual(cards, {"week", "holidays", "history", "tasks"})   # estadísticas: por panel, en JS
         hero = html[html.index('id="hero"'):html.index('class="card today-card"')]
         self.assertNotIn("data-card", hero)
 

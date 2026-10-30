@@ -1,6 +1,14 @@
 # ── Datos personales: NUNCA al repositorio ─────────────────────────────
 # Fichajes, ajustes, copias .bak, log y archivo de control de la instancia.
 /data/
+# Tareas e imputaciones (2.2): pueden contener tickets y descripciones de trabajo.
+# Ya están dentro de /data/; se listan también por si se usa otra carpeta de datos.
+tasks.json
+tasks.json.bak
+# Copias completas y exportaciones descargadas por error dentro del proyecto.
+jornada-backup-*.json
+imputacion_*.csv
+jornada_*.csv
 
 # Acceso directo generado por instalar-escritorio.sh (contiene rutas de tu equipo).
 /Jornada.desktop

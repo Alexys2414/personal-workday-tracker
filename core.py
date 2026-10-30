@@ -52,7 +52,8 @@ MAX_PERIODS = 30
 
 # Atajos de teclado: acción -> combinación «Ctrl+Alt+Shift+Meta+<KeyboardEvent.code>».
 SHORTCUT_ACTIONS = ("start_day", "break_start", "break_end", "stop_day", "open_calendar",
-                    "open_stats", "open_settings", "toggle_theme", "edit_today", "open_simulator")
+                    "open_stats", "open_settings", "toggle_theme", "edit_today", "open_simulator",
+                    "task_picker", "task_pause")
 DEFAULT_SHORTCUTS = {
     "start_day": "Alt+Shift+KeyI",
     "break_start": "Alt+Shift+KeyD",
@@ -64,6 +65,8 @@ DEFAULT_SHORTCUTS = {
     "toggle_theme": "Alt+Shift+KeyT",
     "edit_today": "Alt+Shift+KeyE",
     "open_simulator": "Alt+Shift+KeyS",
+    "task_picker": "Alt+Shift+KeyK",
+    "task_pause": "Alt+Shift+KeyP",
 }
 _MODIFIERS = ("Ctrl", "Alt", "Shift", "Meta")
 _KEY_CODE_RE = re.compile(
@@ -87,7 +90,7 @@ def valid_shortcut(combo: str) -> bool:
 ACCENTS = ("teal", "blue", "violet", "coral", "amber")
 DENSITIES = ("comfortable", "compact")
 MOTIONS = ("reduced", "normal", "expressive")
-CARD_KEYS = ("quick_stats", "balance", "week", "holidays", "history")
+CARD_KEYS = ("quick_stats", "balance", "week", "holidays", "history", "tasks")
 
 # Tipos de día (2.1). Cómo computa cada uno lo decide el usuario:
 #   "none"   → sin objetivo: no genera déficit y reduce el objetivo semanal.
@@ -139,6 +142,8 @@ def default_settings() -> dict:
         "cards": {key: True for key in CARD_KEYS},
         "weekly_goal": {"mode": "auto", "custom_minutes": 2400, "compensation": True},
         "day_types": {key: "none" for key in DAY_TYPES},
+        # Tareas (2.2): el objetivo de imputación es independiente de la jornada laboral.
+        "tasks": {"weekly_goal_minutes": 2400, "decimal": False},
         "notifications": {
             "in_app": True, "desktop": False, "sound": False,
             "leads": [], "done": True,
@@ -329,6 +334,16 @@ def normalize_settings(raw: dict | None, base: dict | None = None) -> dict:
             if not isinstance(leads, list) or len(leads) > MAX_LEADS:
                 raise ValidationError("err.bad_leads", max=MAX_LEADS)
             target["leads"] = sorted({_int_in_range(m, "@label.lead", 1, 480) for m in leads}, reverse=True)
+
+    tasks_cfg = raw.get("tasks")
+    if tasks_cfg is not None:
+        if not isinstance(tasks_cfg, dict):
+            raise ValidationError("err.bad_value", field="tasks")
+        if "weekly_goal_minutes" in tasks_cfg:
+            result["tasks"]["weekly_goal_minutes"] = _int_in_range(
+                tasks_cfg["weekly_goal_minutes"], "@label.task_goal", 0, 7 * 1440)
+        if "decimal" in tasks_cfg:
+            result["tasks"]["decimal"] = bool(tasks_cfg["decimal"])
 
     result["version"] = SETTINGS_VERSION
     return result

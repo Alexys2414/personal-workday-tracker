@@ -33,6 +33,7 @@ async function load() {
     if (state.settings?.time_format !== data.settings.time_format) fmtCache.clear();
     state.settings = data.settings;
     state.today = data.today;
+    state.task = data.task;
     applyTheme(data.settings.theme);
     applyLook(data.settings);
     if (data.settings.language !== currentLang()) await loadLanguage(data.settings.language);
@@ -92,6 +93,15 @@ function tick() {
   const exit = hs === 'done' ? l.completedAt : l.exit;
   $('#cwExitLabel').textContent = t(hs === 'done' ? 'exit.completed_at' : hs.startsWith('finished') ? 'exit.left_at' : 'cw.exit');
   $('#cwExit').textContent = exit ? clock(exit) : '—';
+
+  // Tarea activa (2.2): solo informativa aquí; el cambio de tarea se hace en la aplicación completa.
+  const box = $('#cwTask');
+  box.hidden = !state.task;
+  if (state.task) {
+    const text = `${state.task.key || state.task.title} · ${hms(Math.max(0, (nowMs() - Date.parse(state.task.start)) / 1000))}`;
+    const html = `<i class="tc-dot" data-color="${state.task.color}"></i><span class="tabular">${esc(text)}</span>`;
+    if (box.innerHTML !== html) box.innerHTML = html;
+  }
 
   document.title = hs === 'working' ? `${hms(l.remaining, true)} · Jornada` : hs === 'done' ? `+${hms(l.extra)} · Jornada` : 'Jornada';
   checkAlerts(d, l);

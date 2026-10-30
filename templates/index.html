@@ -45,6 +45,7 @@
             <button type="button" role="menuitem" data-compact="pip" hidden><svg><use href="#i-pin"/></svg><span><strong data-i18n="cm.pip">{{ t('cm.pip') }}</strong><small data-i18n="cm.pip_sub">{{ t('cm.pip_sub') }}</small></span></button>
           </div>
         </div>
+        <button class="icon-btn" id="tasksBtn" title="{{ t('tk.open') }}" aria-label="{{ t('tk.open') }}" data-i18n-title="tk.open" data-i18n-aria="tk.open"><svg><use href="#i-ticket"/></svg></button>
         <button class="lang-btn" id="langBtn" title="{{ t('top.lang') }}" aria-label="{{ t('top.lang') }}" data-i18n-title="top.lang" data-i18n-aria="top.lang">
           <svg><use href="#i-globe"/></svg><span id="langCode">{{ lang|upper }}</span>
         </button>
@@ -119,6 +120,8 @@
         </div>
       </aside>
     </section>
+
+    <section class="task-strip" id="taskStrip" data-card="tasks" aria-label="{{ t('ts.aria') }}" data-i18n-aria="ts.aria" aria-live="polite"></section>
 
     <section class="summary" aria-label="{{ t('sum.aria') }}" data-i18n-aria="sum.aria">
       <div class="sum-cell" data-tone="work">
@@ -374,6 +377,10 @@
             <label class="field inline goal-custom" id="sGoalCustomWrap"><span data-i18n="goal.hours">{{ t('goal.hours') }}</span><input type="text" id="sGoalCustom" inputmode="numeric" placeholder="40:00"></label>
             <span class="muted small" id="sGoalAuto"></span>
           </div>
+          <div class="goal-row">
+            <label class="field inline"><span data-i18n="set.task_goal">{{ t('set.task_goal') }}</span><input type="text" id="sTaskGoal" inputmode="numeric" placeholder="40:00" class="goal-input"></label>
+            <span class="muted small" data-i18n="set.task_goal_hint">{{ t('set.task_goal_hint') }}</span>
+          </div>
           <label class="check-row"><input type="checkbox" id="sCompensation"><span><strong data-i18n="goal.comp">{{ t('goal.comp') }}</strong><small class="muted" data-i18n="goal.comp_hint">{{ t('goal.comp_hint') }}</small></span></label>
         </section>
 
@@ -608,7 +615,7 @@
           </div>
           <div class="field"><span data-i18n="look.cards">{{ t('look.cards') }}</span>
             <div class="card-toggles" id="sCards">
-              {% for c in ['quick_stats', 'balance', 'week', 'holidays', 'history'] %}<label class="check-row compact"><input type="checkbox" data-card-toggle="{{ c }}"><span><strong data-i18n="cards.{{ c }}">{{ t('cards.' ~ c) }}</strong></span></label>{% endfor %}
+              {% for c in ['tasks', 'quick_stats', 'balance', 'week', 'holidays', 'history'] %}<label class="check-row compact"><input type="checkbox" data-card-toggle="{{ c }}"><span><strong data-i18n="cards.{{ c }}">{{ t('cards.' ~ c) }}</strong></span></label>{% endfor %}
             </div>
             <span class="muted small" data-i18n="look.cards_hint">{{ t('look.cards_hint') }}</span>
           </div>
@@ -717,6 +724,185 @@
     </form>
   </dialog>
 
+  <!-- Tareas e imputación (2.2) -->
+  <dialog class="modal modal-wide tasks-modal" id="tasksDialog">
+    <div class="modal-shell">
+      <header class="modal-head">
+        <div><h3 data-i18n="tk.title">{{ t('tk.title') }}</h3><span class="muted small" data-i18n="tk.subtitle">{{ t('tk.subtitle') }}</span></div>
+        <button type="button" class="icon-btn small" data-close aria-label="{{ t('common.close') }}" data-i18n-aria="common.close"><svg><use href="#i-x"/></svg></button>
+      </header>
+      <nav class="tabs" role="tablist" id="tkTabs">
+        <button type="button" role="tab" data-tab="tasks" aria-selected="true"><svg><use href="#i-ticket"/></svg><span data-i18n="tk.tab_tasks">{{ t('tk.tab_tasks') }}</span></button>
+        <button type="button" role="tab" data-tab="day" aria-selected="false"><svg><use href="#i-clock"/></svg><span data-i18n="tk.tab_day">{{ t('tk.tab_day') }}</span></button>
+        <button type="button" role="tab" data-tab="week" aria-selected="false"><svg><use href="#i-chart"/></svg><span data-i18n="tk.tab_week">{{ t('tk.tab_week') }}</span></button>
+        <button type="button" role="tab" data-tab="report" aria-selected="false"><svg><use href="#i-list"/></svg><span data-i18n="tk.tab_report">{{ t('tk.tab_report') }}</span></button>
+        <span class="tab-indicator" aria-hidden="true"></span>
+      </nav>
+      <div class="modal-body tk-body">
+        <section class="tab-panel" data-panel="tasks" role="tabpanel">
+          <div class="tk-toolbar">
+            <label class="search-field"><svg><use href="#i-search"/></svg><input type="search" id="tkSearch" placeholder="{{ t('tk.search') }}" data-i18n-placeholder="tk.search" aria-label="{{ t('tk.search') }}" data-i18n-aria="tk.search"></label>
+            <div class="segmented small-seg" id="tkFilter">
+              <button type="button" data-value="open" class="active" data-i18n="tk.f_open">{{ t('tk.f_open') }}</button>
+              <button type="button" data-value="fav" data-i18n="tk.f_fav">{{ t('tk.f_fav') }}</button>
+              <button type="button" data-value="done" data-i18n="tk.f_done">{{ t('tk.f_done') }}</button>
+              <button type="button" data-value="all" data-i18n="tk.f_all">{{ t('tk.f_all') }}</button>
+            </div>
+            <button type="button" class="primary-btn" id="tkNew"><svg><use href="#i-plus"/></svg><span data-i18n="tk.new">{{ t('tk.new') }}</span></button>
+          </div>
+          <div class="tk-grid" id="tkGrid"></div>
+        </section>
+        <section class="tab-panel" data-panel="day" role="tabpanel" hidden>
+          <div class="tk-daynav">
+            <button type="button" class="icon-btn small" id="tdPrev" aria-label="{{ t('tk.prev_day') }}" data-i18n-aria="tk.prev_day"><svg><use href="#i-left"/></svg></button>
+            <input type="date" id="tdDate" aria-label="{{ t('ed.date') }}" data-i18n-aria="ed.date">
+            <button type="button" class="icon-btn small" id="tdNext" aria-label="{{ t('tk.next_day') }}" data-i18n-aria="tk.next_day"><svg><use href="#i-right"/></svg></button>
+            <button type="button" class="ghost-btn small" id="tdToday" data-i18n="week.today">{{ t('week.today') }}</button>
+          </div>
+          <div id="tdBody" aria-live="polite"></div>
+        </section>
+        <section class="tab-panel" data-panel="week" role="tabpanel" hidden>
+          <div class="tk-daynav">
+            <button type="button" class="icon-btn small" id="twPrev" aria-label="{{ t('week.prev') }}" data-i18n-aria="week.prev"><svg><use href="#i-left"/></svg></button>
+            <strong id="twRange"></strong>
+            <button type="button" class="icon-btn small" id="twNext" aria-label="{{ t('week.next') }}" data-i18n-aria="week.next"><svg><use href="#i-right"/></svg></button>
+            <button type="button" class="ghost-btn small" id="twToday" data-i18n="week.today">{{ t('week.today') }}</button>
+          </div>
+          <div id="twBody"></div>
+        </section>
+        <section class="tab-panel" data-panel="report" role="tabpanel" hidden>
+          <div class="rp-controls">
+            <label class="field"><span data-i18n="data.from">{{ t('data.from') }}</span><input type="date" id="rpFrom"></label>
+            <label class="field"><span data-i18n="data.to">{{ t('data.to') }}</span><input type="date" id="rpTo"></label>
+            <div class="field"><span data-i18n="rep.group">{{ t('rep.group') }}</span>
+              <div class="segmented small-seg" id="rpGroup">
+                <button type="button" data-value="day" class="active" data-i18n="rep.by_day">{{ t('rep.by_day') }}</button>
+                <button type="button" data-value="ticket" data-i18n="rep.by_ticket">{{ t('rep.by_ticket') }}</button>
+              </div></div>
+            <div class="field"><span data-i18n="rep.format">{{ t('rep.format') }}</span>
+              <div class="segmented small-seg" id="rpFormat">
+                <button type="button" data-value="hm" class="active">1 h 30 min</button>
+                <button type="button" data-value="decimal" id="rpDecimalLabel">1,50 h</button>
+              </div></div>
+          </div>
+          <div class="rp-quick" id="rpQuick"></div>
+          <div id="rpBody" aria-live="polite"></div>
+          <p class="note-box small" data-i18n-html="rep.note">{{ t('rep.note')|safe }}</p>
+        </section>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Nueva tarea / editar tarea -->
+  <dialog class="modal" id="taskDialog">
+    <form method="dialog" id="taskForm" novalidate>
+      <header class="modal-head">
+        <div><h3 id="taskDialogTitle">{{ t('tk.new') }}</h3><span class="muted small" data-i18n="tk.form_hint">{{ t('tk.form_hint') }}</span></div>
+        <button type="button" class="icon-btn small" data-close aria-label="{{ t('common.close') }}" data-i18n-aria="common.close"><svg><use href="#i-x"/></svg></button>
+      </header>
+      <div class="modal-body">
+        <div class="form-row tk-form-top">
+          <label class="field"><span data-i18n="tk.key">{{ t('tk.key') }}</span><input type="text" id="tfKey" maxlength="32" placeholder="DEMO-101" autocomplete="off" spellcheck="false"></label>
+          <label class="field"><span data-i18n="tk.estimate">{{ t('tk.estimate') }}</span><input type="text" id="tfEstimate" inputmode="numeric" placeholder="8:00"></label>
+        </div>
+        <label class="field"><span data-i18n="tk.title_label">{{ t('tk.title_label') }}</span><input type="text" id="tfTitle" maxlength="160" placeholder="{{ t('tk.title_ph') }}" data-i18n-placeholder="tk.title_ph"></label>
+        <label class="field"><span data-i18n="tk.project">{{ t('tk.project') }}</span><input type="text" id="tfProject" maxlength="60" list="tfProjects" placeholder="{{ t('cs.label_opt') }}" data-i18n-placeholder="cs.label_opt"><datalist id="tfProjects"></datalist></label>
+        <div class="field"><span data-i18n="tk.color">{{ t('tk.color') }}</span><div class="swatches task-swatches" id="tfColor" role="radiogroup"></div></div>
+        <div class="field" id="tfStatusWrap"><span data-i18n="tk.status">{{ t('tk.status') }}</span>
+          <div class="segmented" id="tfStatus">
+            <button type="button" data-value="pending" data-i18n="tk.s_pending">{{ t('tk.s_pending') }}</button>
+            <button type="button" data-value="in_progress" data-i18n="tk.s_in_progress">{{ t('tk.s_in_progress') }}</button>
+            <button type="button" data-value="paused" data-i18n="tk.s_paused">{{ t('tk.s_paused') }}</button>
+            <button type="button" data-value="done" data-i18n="tk.s_done">{{ t('tk.s_done') }}</button>
+          </div></div>
+        <label class="field"><span data-i18n="ed.notes">{{ t('ed.notes') }}</span><textarea id="tfNotes" rows="2" maxlength="2000"></textarea></label>
+        <label class="check-row compact"><input type="checkbox" id="tfFavorite"><span><strong data-i18n="tk.favorite">{{ t('tk.favorite') }}</strong></span></label>
+        <div class="form-error" id="tfError" role="alert" hidden></div>
+      </div>
+      <footer class="modal-foot">
+        <button type="button" class="danger-btn" id="tfDelete"><svg><use href="#i-trash"/></svg><span data-i18n="common.delete">{{ t('common.delete') }}</span></button>
+        <span class="spacer"></span>
+        <button type="button" class="ghost-btn" data-close data-i18n="common.cancel">{{ t('common.cancel') }}</button>
+        <button type="submit" class="primary-btn" id="tfSave" data-i18n="common.save">{{ t('common.save') }}</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Selector rápido de tarea -->
+  <dialog class="modal modal-sm picker-modal" id="pickerDialog">
+    <div class="picker">
+      <label class="search-field big"><svg><use href="#i-search"/></svg><input type="search" id="pkSearch" placeholder="{{ t('pk.search') }}" data-i18n-placeholder="pk.search" aria-label="{{ t('pk.search') }}" data-i18n-aria="pk.search" autocomplete="off" role="combobox" aria-controls="pkList" aria-expanded="true"></label>
+      <ul class="pk-list" id="pkList" role="listbox"></ul>
+      <footer class="pk-foot muted small"><span data-i18n-html="pk.keys">{{ t('pk.keys')|safe }}</span><button type="button" class="ghost-btn small" id="pkNew"><svg><use href="#i-plus"/></svg><span data-i18n="tk.new">{{ t('tk.new') }}</span></button></footer>
+    </div>
+  </dialog>
+
+  <!-- Tramo de tiempo: editar, mover, dividir o añadir manual -->
+  <dialog class="modal" id="entryDialog">
+    <form method="dialog" id="entryForm" novalidate>
+      <header class="modal-head">
+        <div><h3 id="entryTitle">{{ t('en.add') }}</h3><span class="muted small" id="entrySub"></span></div>
+        <button type="button" class="icon-btn small" data-close aria-label="{{ t('common.close') }}" data-i18n-aria="common.close"><svg><use href="#i-x"/></svg></button>
+      </header>
+      <div class="modal-body">
+        <label class="field"><span data-i18n="en.task">{{ t('en.task') }}</span><select id="efTask"></select></label>
+        <div class="form-row">
+          <label class="field"><span data-i18n="ed.date">{{ t('ed.date') }}</span><input type="date" id="efDate"></label>
+          <div class="field"><span data-i18n="en.kind">{{ t('en.kind') }}</span>
+            <div class="segmented" id="efKind">
+              <button type="button" data-value="duration" data-i18n="en.k_duration">{{ t('en.k_duration') }}</button>
+              <button type="button" data-value="range" data-i18n="en.k_range">{{ t('en.k_range') }}</button>
+            </div></div>
+        </div>
+        <div class="ef-duration" id="efDurationBox">
+          <div class="quick-durations" id="efQuick">
+            <button type="button" class="chip-btn" data-min="15">15 min</button>
+            <button type="button" class="chip-btn" data-min="30">30 min</button>
+            <button type="button" class="chip-btn" data-min="60">1 h</button>
+            <button type="button" class="chip-btn" data-min="120">2 h</button>
+          </div>
+          <label class="field"><span data-i18n="en.duration">{{ t('en.duration') }}</span><input type="text" id="efMinutes" inputmode="numeric" placeholder="1:30"></label>
+        </div>
+        <div class="form-row" id="efRangeBox">
+          <label class="field"><span data-i18n="en.start">{{ t('en.start') }}</span><input type="time" id="efStart" step="60"></label>
+          <label class="field"><span data-i18n="en.end">{{ t('en.end') }}</span><input type="time" id="efEnd" step="60"></label>
+        </div>
+        <label class="field"><span data-i18n="en.note">{{ t('en.note') }}</span><input type="text" id="efNote" maxlength="200"></label>
+        <label class="check-row compact" id="efBookedRow"><input type="checkbox" id="efBooked"><span><strong data-i18n="rep.booked_all">{{ t('rep.booked_all') }}</strong></span></label>
+        <div class="ef-split" id="efSplit" hidden>
+          <h4><svg><use href="#i-scissors"/></svg><span data-i18n="en.split">{{ t('en.split') }}</span></h4>
+          <div class="form-row">
+            <label class="field" id="efSplitAtWrap"><span data-i18n="en.split_at">{{ t('en.split_at') }}</span><input type="time" id="efSplitAt" step="60"></label>
+            <label class="field" id="efSplitMinWrap"><span data-i18n="en.split_first">{{ t('en.split_first') }}</span><input type="text" id="efSplitFirst" inputmode="numeric" placeholder="0:45"></label>
+            <label class="field"><span data-i18n="en.split_task">{{ t('en.split_task') }}</span><select id="efSplitTask"></select></label>
+          </div>
+          <p class="muted small" id="efSplitPreview"></p>
+          <button type="button" class="ghost-btn small" id="efSplitGo"><svg><use href="#i-scissors"/></svg><span data-i18n="en.split_go">{{ t('en.split_go') }}</span></button>
+        </div>
+        <p class="muted small" id="efSource"></p>
+        <div class="form-error" id="efError" role="alert" hidden></div>
+      </div>
+      <footer class="modal-foot">
+        <button type="button" class="danger-btn" id="efDelete"><svg><use href="#i-trash"/></svg><span data-i18n="common.delete">{{ t('common.delete') }}</span></button>
+        <span class="spacer"></span>
+        <button type="button" class="ghost-btn" data-close data-i18n="common.cancel">{{ t('common.cancel') }}</button>
+        <button type="submit" class="primary-btn" id="efSave" data-i18n="common.save">{{ t('common.save') }}</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Pregunta con varias opciones -->
+  <dialog class="modal modal-sm" id="choiceDialog">
+    <form method="dialog">
+      <div class="modal-body confirm-body">
+        <span class="confirm-icon"><svg><use href="#i-info"/></svg></span>
+        <h3 id="choiceTitle"></h3>
+        <p class="muted" id="choiceText"></p>
+      </div>
+      <footer class="modal-foot stack" id="choiceButtons"></footer>
+    </form>
+  </dialog>
+
   <!-- Confirmación -->
   <dialog class="modal modal-sm" id="confirmDialog">
     <form method="dialog">
@@ -741,5 +927,6 @@
   <script src="{{ url_for('static', filename='js/datatools.js', v=build) }}"></script>
   <script src="{{ url_for('static', filename='js/calendar.js', v=build) }}"></script>
   <script src="{{ url_for('static', filename='js/insights.js', v=build) }}"></script>
+  <script src="{{ url_for('static', filename='js/tasks.js', v=build) }}"></script>
 </body>
 </html>

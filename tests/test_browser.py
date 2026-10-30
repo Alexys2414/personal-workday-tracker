@@ -59,6 +59,13 @@ class PagesLoadWithoutErrors(unittest.TestCase):
         days = {"2026-10-27": record(core.week_dates(THU)[1], "08:00", "17:30", [("14:00", "15:00")]),
                 THU.isoformat(): record(THU, "07:53", None, [("14:00", "14:40")], now=core.combine(THU, "15:00"))}
         (data / "records.json").write_text(json.dumps({"version": 1, "days": days}))
+        import tasks as tm
+        tdata, task = tm.create_task(tm.default_data(), {"key": "DEMO-101", "title": "Tarea ficticia",
+                                                         "estimate_minutes": 480}, core.combine(THU, "07:00"))
+        tdata, _ = tm.add_manual(tdata, {"task_id": task["id"], "date": THU.isoformat(), "start": "07:53",
+                                         "end": "10:00"}, core.combine(THU, "15:00"))
+        tdata, _ = tm.start(tdata, task["id"], core.combine(THU, "14:40"))
+        (data / "tasks.json").write_text(json.dumps(tdata))
         (data / "calendar.json").write_text(json.dumps({"version": 1, "days": {"2026-11-02": {"type": "vacation"}},
                                                         "recurring": {"12-25": {"label": "Navidad"}}}))
         with socket.socket() as s:
@@ -83,10 +90,17 @@ class PagesLoadWithoutErrors(unittest.TestCase):
         self.assertRegex(dom, r'id="countdown">\d\d:\d\d:\d\d<')
         self.assertRegex(dom, r'id="wkBody">\s*<div class="wk-top">')
         self.assertIn("Navidad", dom)
+        self.assertIn('id="taskStrip" data-card="tasks"', dom)
+        self.assertRegex(dom, r'data-mode="active"')                     # franja con la tarea en marcha
+        self.assertIn("DEMO-101", dom)
 
     def test_views_from_links(self):
         for path, marker in (("/#/simulate", 'class="sim-hero"'), ("/#/stats", 'data-panel="heatmap"'),
-                             ("/#/settings/calendar", 'class="hol-main"'), ("/#/settings/alerts", 'class="lead-chip')):
+                             ("/#/settings/calendar", 'class="hol-main"'), ("/#/settings/alerts", 'class="lead-chip'),
+                             ("/#/tasks/tasks", 'class="tk-card'), ("/#/tasks/day", 'class="entry '),
+                             ("/#/tasks/week", 'class="share-list"'), ("/#/tasks/report", 'class="data-table rp-table"'),
+                             ("/#/picker", 'role="option"'), ("/#/tasks/new", 'data-value="teal"'),
+                             ("/#/entry/new", '<option value="t_')):
             with self.subTest(path):
                 self.assertIn(marker, self.load(path))
 

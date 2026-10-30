@@ -8,7 +8,7 @@
 'use strict';
 
 const SC_ACTIONS = ['start_day', 'break_start', 'break_end', 'stop_day', 'open_calendar',
-  'open_stats', 'open_settings', 'toggle_theme', 'edit_today', 'open_simulator'];
+  'open_stats', 'open_settings', 'toggle_theme', 'edit_today', 'open_simulator', 'task_picker', 'task_pause'];
 const SC_MODIFIER_CODES = new Set(['ControlLeft', 'ControlRight', 'AltLeft', 'AltRight', 'ShiftLeft', 'ShiftRight',
   'MetaLeft', 'MetaRight', 'OSLeft', 'OSRight', 'CapsLock', 'Fn', 'AltGraph']);
 const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
@@ -246,6 +246,13 @@ function runShortcut(action, combo) {
   else if (action === 'toggle_theme') toggleTheme();
   else if (action === 'edit_today') openEditor(d.date);
   else if (action === 'open_simulator' && window.openSimulator) openSimulator();
+  else if (action === 'task_picker' && window.openPicker) openPicker();
+  else if (action === 'task_pause' && window.pauseTask) {
+    // Pausa la tarea activa; si no hay ninguna, continúa la que quedó en pausa por el descanso.
+    if (tk.active) pauseTask();
+    else if (tk.resume) startTask(tk.resume);
+    else openPicker();
+  }
 }
 
 window.addEventListener('keydown', (e) => {

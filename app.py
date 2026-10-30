@@ -35,10 +35,11 @@ import csvio  # noqa: E402
 import daymarks  # noqa: E402
 import i18n  # noqa: E402
 import insights  # noqa: E402
+import tasks as taskmod  # noqa: E402
 from storage import JsonStore, save_many  # noqa: E402
 
 APP_ID = "jornada"
-APP_VERSION = "2.1.0"
+APP_VERSION = "2.2.0"
 LOCAL_HOSTS = {"127.0.0.1", "localhost"}
 DEFAULT_PORT = 8765
 PORT_ATTEMPTS = 20
@@ -79,6 +80,7 @@ def create_app(data_dir: str | Path | None = None,
     records_store = JsonStore(data_dir / "records.json", lambda: {"version": 1, "days": {}})
     settings_store = JsonStore(data_dir / "settings.json", core.default_settings)
     calendar_store = JsonStore(data_dir / "calendar.json", core.default_calendar)
+    tasks_store = JsonStore(data_dir / "tasks.json", taskmod.default_data)
     lock = threading.Lock()
     clock = clock or (lambda: datetime.now(core.UTC))
 
@@ -97,6 +99,9 @@ def create_app(data_dir: str | Path | None = None,
 
     def load_calendar() -> dict:
         return core.normalize_calendar(calendar_store.load())
+
+    def load_tasks() -> dict:
+        return taskmod.normalize(tasks_store.load())
 
     def parse_date(value: str) -> date:
         try:
@@ -130,7 +135,7 @@ def create_app(data_dir: str | Path | None = None,
         """Copia de los JSON actuales en data/backups/<motivo>-<fecha>/ (nunca se borran solas)."""
         folder = data_dir / "backups" / f"{reason}-{datetime.now().strftime('%Y%m%d-%H%M%S-%f')}"
         folder.mkdir(parents=True, exist_ok=True)
-        for name in ("records.json", "settings.json", "calendar.json"):
+        for name in ("records.json", "settings.json", "calendar.json", "tasks.json"):
             if (data_dir / name).exists():
                 shutil.copy2(data_dir / name, folder / name)
         return folder
@@ -148,6 +153,7 @@ def create_app(data_dir: str | Path | None = None,
         settings_store.save(load_settings())
         load_days()
         load_calendar()
+        load_tasks()
 
     @app.before_request
     def _only_local():
@@ -216,7 +222,17 @@ def create_app(data_dir: str | Path | None = None,
             settings=load_settings(),
             today=core.compute_day(today, load_days().get(today.isoformat()), load_settings(), current,
                                    load_calendar()),
+            task=active_task_view(load_tasks(), current),
         )
+
+    def active_task_view(data: dict, current) -> dict | None:
+        e = taskmod.active_entry(data)
+        if not e:
+            return None
+        t = data["tasks"][e["task_id"]]
+        return {"entry_id": e["id"], "task_id": t["id"], "key": t["key"], "title": t["title"], "color": t["color"],
+                "start": e["start"],
+                "task_s": round(taskmod.task_totals(data, current)[t["id"]]["total_s"], 3)}
 
     @app.get("/api/ping")
     def ping():
@@ -251,8 +267,17 @@ def create_app(data_dir: str | Path | None = None,
             if body.get("expect") and body["expect"] != before:
                 raise core.Conflict("conflict.state_changed")
             days[key] = core.apply_action(action, today, days.get(key), settings, current, calendar)
-            save_days(days)
-            return jsonify(today=core.compute_day(today, days[key], settings, current, calendar))
+            # Tareas: un descanso pausa el cronómetro (sin imputar el descanso) y recuerda la tarea
+            # para ofrecer continuarla; finalizar la jornada cierra el tramo activo.
+            task_data = load_tasks()
+            paused = None
+            if action in ("break_start", "stop") and taskmod.active_entry(task_data):
+                task_data, paused = taskmod.pause(task_data, current, remember=action == "break_start")
+                save_many([(records_store, {"version": 1, "days": days}), (tasks_store, task_data)])
+            else:
+                save_days(days)
+            return jsonify(today=core.compute_day(today, days[key], settings, current, calendar),
+                           task_paused=paused["task_id"] if paused else None)
 
     @app.get("/api/month/<int:year>-<int:month>")
     def month_view(year: int, month: int):
@@ -396,6 +421,216 @@ def create_app(data_dir: str | Path | None = None,
             if changed:
                 save_days(days)
         return jsonify(settings)
+
+    # ------------------------------------------------- tareas (2.2)
+
+    def tasks_payload(data: dict, current) -> dict:
+        projects = sorted({t["project"] for t in data["tasks"].values() if t["project"]})
+        return {"tasks": taskmod.task_view(data, current), "active": active_task_view(data, current),
+                "resume_task_id": data["state"]["resume_task_id"], "projects": projects,
+                "server_ms": int(current.timestamp() * 1000)}
+
+    def save_tasks(data: dict) -> None:
+        tasks_store.save(data)
+
+    @app.get("/api/tasks")
+    def list_tasks():
+        return jsonify(tasks_payload(load_tasks(), now()))
+
+    @app.post("/api/tasks")
+    def create_task():
+        with lock:
+            current = now()
+            data, task = taskmod.create_task(load_tasks(), request.get_json(silent=True), current)
+            save_tasks(data)
+            return jsonify(task=task, **tasks_payload(data, current))
+
+    @app.put("/api/tasks/<task_id>")
+    def update_task(task_id: str):
+        with lock:
+            current = now()
+            data, task = taskmod.update_task(load_tasks(), task_id, request.get_json(silent=True), current)
+            save_tasks(data)
+            return jsonify(task=task, **tasks_payload(data, current))
+
+    @app.delete("/api/tasks/<task_id>")
+    def delete_task(task_id: str):
+        body = request.get_json(silent=True) or {}
+        with lock:
+            data = load_tasks()
+            n = sum(1 for e in data["entries"].values() if e["task_id"] == task_id)
+            # Nunca se borran tramos sin una confirmación explícita.
+            if n and body.get("confirm") is not True:
+                return jsonify(error=tr("task.e.confirm_delete", n=n), code="task.confirm", entries=n), 409
+            data, removed = taskmod.delete_task(data, task_id)
+            save_tasks(data)
+            return jsonify(ok=True, removed_entries=removed, **tasks_payload(data, now()))
+
+    @app.post("/api/tasks/<task_id>/start")
+    def start_task(task_id: str):
+        """Empieza o cambia de tarea. Si la jornada no está en marcha, pregunta antes (409)."""
+        body = request.get_json(silent=True) or {}
+        with lock:
+            current = now()
+            today = core.local_date(current)
+            data = load_tasks()
+            active = taskmod.active_entry(data)
+            # Dos ventanas: si el cronómetro cambió desde que esta lo vio, no se pisa.
+            if "expect_active" in body and body["expect_active"] != (active["id"] if active else None):
+                raise core.Conflict("conflict.state_changed")
+            settings, days, calendar = load_settings(), load_days(), load_calendar()
+            status = core.compute_day(today, days.get(today.isoformat()), settings, current, calendar)["status"]
+            mode = body.get("day")            # None | "start" | "end_break" | "ignore"
+            if status == "on_break" and mode not in ("end_break", "ignore"):
+                return jsonify(error=tr("task.q.on_break"), code="task.on_break"), 409
+            if status in ("not_started", "nonworking", "off", "finished") and mode not in ("start", "ignore"):
+                return jsonify(error=tr("task.q.no_day"), code="task.no_day", status=status,
+                               can_start=status != "finished"), 409
+            changed_day = False
+            if status == "on_break" and mode == "end_break":
+                days[today.isoformat()] = core.apply_action("break_end", today, days.get(today.isoformat()),
+                                                            settings, current, calendar)
+                changed_day = True
+            elif mode == "start" and status in ("not_started", "nonworking", "off"):
+                days[today.isoformat()] = core.apply_action("start", today, days.get(today.isoformat()),
+                                                            settings, current, calendar)
+                changed_day = True
+            data, entry = taskmod.start(data, task_id, current)
+            if changed_day:
+                save_many([(records_store, {"version": 1, "days": days}), (tasks_store, data)])
+            else:
+                save_tasks(data)
+            return jsonify(entry=entry, day_changed=changed_day, **tasks_payload(data, current))
+
+    @app.post("/api/tasks/pause")
+    def pause_task():
+        with lock:
+            current = now()
+            data, closed = taskmod.pause(load_tasks(), current)
+            save_tasks(data)
+            return jsonify(closed=closed, **tasks_payload(data, current))
+
+    @app.post("/api/tasks/resume/dismiss")
+    def dismiss_resume():
+        with lock:
+            data = load_tasks()
+            data["state"]["resume_task_id"] = None
+            save_tasks(data)
+            return jsonify(ok=True)
+
+    @app.get("/api/tasks/<task_id>/entries")
+    def task_entries(task_id: str):
+        data = load_tasks()
+        if task_id not in data["tasks"]:
+            raise core.ValidationError("task.e.not_found")
+        current = now()
+        items = [taskmod._entry_view(e, data, current) for e in data["entries"].values() if e["task_id"] == task_id]
+        items.sort(key=lambda e: (e["date"], e.get("start") or ""), reverse=True)
+        return jsonify(entries=items)
+
+    @app.get("/api/entries/<entry_id>")
+    def get_entry(entry_id: str):
+        data = load_tasks()
+        if entry_id not in data["entries"]:
+            raise core.ValidationError("task.e.entry_not_found")
+        return jsonify(entry=taskmod._entry_view(data["entries"][entry_id], data, now()))
+
+    @app.post("/api/entries")
+    def add_entry():
+        with lock:
+            current = now()
+            data, entry = taskmod.add_manual(load_tasks(), request.get_json(silent=True), current)
+            save_tasks(data)
+            return jsonify(entry=entry, **tasks_payload(data, current))
+
+    @app.put("/api/entries/<entry_id>")
+    def edit_entry(entry_id: str):
+        with lock:
+            current = now()
+            data, entry = taskmod.update_entry(load_tasks(), entry_id, request.get_json(silent=True), current)
+            save_tasks(data)
+            return jsonify(entry=entry, **tasks_payload(data, current))
+
+    @app.delete("/api/entries/<entry_id>")
+    def remove_entry(entry_id: str):
+        body = request.get_json(silent=True) or {}
+        if body.get("confirm") is not True:
+            raise core.ValidationError("task.e.confirm")
+        with lock:
+            current = now()
+            data = taskmod.delete_entry(load_tasks(), entry_id)
+            save_tasks(data)
+            return jsonify(ok=True, **tasks_payload(data, current))
+
+    @app.post("/api/entries/<entry_id>/split")
+    def split(entry_id: str):
+        with lock:
+            current = now()
+            data, first, second = taskmod.split_entry(load_tasks(), entry_id, request.get_json(silent=True), current)
+            save_tasks(data)
+            return jsonify(first=first, second=second, **tasks_payload(data, current))
+
+    @app.post("/api/entries/booked")
+    def mark_booked():
+        body = request.get_json(silent=True) or {}
+        with lock:
+            data, n = taskmod.set_booked(load_tasks(), body.get("ids"), bool(body.get("booked")))
+            save_tasks(data)
+        return jsonify(updated=n)
+
+    @app.get("/api/tasks/day/<day>")
+    def task_day(day: str):
+        d = parse_date(day)
+        current = now()
+        return jsonify(taskmod.day_summary(d, load_tasks(), load_days().get(d.isoformat()), load_settings(),
+                                           current, load_calendar()))
+
+    @app.get("/api/tasks/day/<day>/trim")
+    def trim_preview(day: str):
+        d = parse_date(day)
+        return jsonify(plan=taskmod.trim_plan(d, load_tasks(), load_days().get(d.isoformat()), now()))
+
+    @app.post("/api/tasks/day/<day>/trim")
+    def trim_apply(day: str):
+        """Ajusta los tramos al trabajo efectivo del fichaje. Solo con confirmación y la misma propuesta."""
+        d = parse_date(day)
+        body = request.get_json(silent=True) or {}
+        if body.get("confirm") is not True:
+            raise core.ValidationError("task.e.confirm")
+        with lock:
+            current = now()
+            data = load_tasks()
+            plan = taskmod.trim_plan(d, data, load_days().get(d.isoformat()), current)
+            if [p["entry_id"] for p in plan] != body.get("entry_ids"):
+                raise core.Conflict("conflict.state_changed")
+            data = taskmod.apply_trim(data, plan, current)
+            save_tasks(data)
+            return jsonify(trimmed=len(plan))
+
+    @app.get("/api/tasks/week/<day>")
+    def task_week(day: str):
+        return jsonify(taskmod.week_summary(parse_date(day), load_tasks(), load_days(), load_settings(), now(),
+                                            load_calendar()))
+
+    def report_args():
+        start = parse_date(request.args["from"]) if request.args.get("from") else None
+        end = parse_date(request.args["to"]) if request.args.get("to") else None
+        group = "ticket" if request.args.get("group") == "ticket" else "day"
+        return start, end, group
+
+    @app.get("/api/tasks/report")
+    def task_report():
+        start, end, group = report_args()
+        return jsonify(taskmod.report(load_tasks(), now(), start, end, group))
+
+    @app.get("/api/tasks/report.csv")
+    def task_report_csv():
+        start, end, group = report_args()
+        fmt = "decimal" if request.args.get("format") == "decimal" else "hm"
+        rep = taskmod.report(load_tasks(), now(), start, end, group)
+        name = f"imputacion_{start or 'inicio'}_{end or 'hoy'}.csv"
+        return Response(taskmod.report_csv(rep, fmt, lang()), mimetype="text/csv; charset=utf-8",
+                        headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
     # --------------------------------------------------- vista compacta
 
@@ -572,7 +807,8 @@ def create_app(data_dir: str | Path | None = None,
     def export_backup():
         current = now()
         with lock:
-            payload = backup.build(records_store.load(), load_settings(), load_calendar(), APP_VERSION, current)
+            payload = backup.build(records_store.load(), load_settings(), load_calendar(), APP_VERSION, current,
+                                   load_tasks())
         text = json.dumps(payload, ensure_ascii=False, indent=2)
         return Response(text, mimetype="application/json; charset=utf-8",
                         headers={"Content-Disposition": f'attachment; filename="{backup.filename(current)}"',
@@ -580,15 +816,16 @@ def create_app(data_dir: str | Path | None = None,
 
     def current_fingerprint() -> str:
         return backup.checksum({"records": records_store.load(), "settings": load_settings(),
-                                "calendar": load_calendar()})
+                                "calendar": load_calendar(), "tasks": load_tasks()})
 
     @app.post("/api/backup/preview")
     def backup_preview():
         body = request.get_json(silent=True) or {}
         parsed = backup.parse(body.get("text", ""))
-        current = backup.counts({"records": records_store.load(), "calendar": load_calendar()})
+        current = backup.counts({"records": records_store.load(), "calendar": load_calendar(), "tasks": load_tasks()})
         return jsonify(meta=parsed["meta"], counts=parsed["counts"], current=current,
-                       overwrites=bool(current["days"] or current["calendar_days"] or current["recurring"]),
+                       overwrites=bool(current["days"] or current["calendar_days"] or current["recurring"]
+                                       or current["tasks"]),
                        fingerprint=parsed["fingerprint"], state=current_fingerprint(),
                        language=parsed["data"]["settings"]["language"])
 
@@ -606,7 +843,7 @@ def create_app(data_dir: str | Path | None = None,
             folder = snapshot_folder("pre-restauracion")
             data = parsed["data"]
             save_many([(records_store, data["records"]), (settings_store, data["settings"]),
-                       (calendar_store, data["calendar"])])
+                       (calendar_store, data["calendar"]), (tasks_store, data["tasks"])])
         return jsonify(ok=True, counts=parsed["counts"],
                        backup=str(folder.relative_to(data_dir.parent)) if folder.is_relative_to(data_dir.parent)
                        else str(folder))

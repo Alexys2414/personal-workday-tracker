@@ -9,7 +9,7 @@
   <img alt="Sin Node.js" src="https://img.shields.io/badge/node.js-no%20necesario-b5561a">
   <img alt="Sin base de datos" src="https://img.shields.io/badge/datos-JSON%20local-b5561a">
   <img alt="Idiomas: español e inglés" src="https://img.shields.io/badge/idiomas-ES%20%C2%B7%20EN-946a00">
-  <img alt="Versión 2.1" src="https://img.shields.io/badge/versi%C3%B3n-2.1-0f766e">
+  <img alt="Versión 2.2" src="https://img.shields.io/badge/versi%C3%B3n-2.2-0f766e">
 </p>
 
 <p align="center">
@@ -19,6 +19,7 @@
 <p align="center">
   <a href="#instalación-rápida-en-linux">Instalación</a> ·
   <a href="#cómo-utilizar-jornada">Uso</a> ·
+  <a href="#tareas-e-imputación-de-horas-22">Tareas 2.2</a> ·
   <a href="#novedades-de-jornada-21">Novedades 2.1</a> ·
   <a href="#atajos-de-teclado">Atajos</a> ·
   <a href="#exportación-e-importación">Exportar e importar</a> ·
@@ -45,7 +46,8 @@ Funciona sin conexión, guarda todo en un archivo JSON local y no necesita permi
 5. [Instalación rápida en Windows](#instalación-rápida-en-windows)
 6. [Crear un acceso directo en el escritorio](#crear-un-acceso-directo-en-el-escritorio)
 7. [Cómo utilizar Jornada](#cómo-utilizar-jornada)
-8. [Novedades de Jornada 2.1](#novedades-de-jornada-21)
+8. [Tareas e imputación de horas (2.2)](#tareas-e-imputación-de-horas-22)
+9. [Novedades de Jornada 2.1](#novedades-de-jornada-21)
    [Copias de seguridad](#1-copias-de-seguridad-y-restauración) ·
    [Modo compacto](#2-modo-compacto-flotante) ·
    [Avisos](#3-avisos-inteligentes) ·
@@ -54,18 +56,18 @@ Funciona sin conexión, guarda todo en un archivo JSON local y no necesita permi
    [Estadísticas](#6-estadísticas-avanzadas) ·
    [Objetivo semanal](#7-objetivo-semanal-y-compensación-simulada) ·
    [Personalización](#8-personalización-visual)
-9. [Horarios normales e intensivos](#horarios-normales-e-intensivos)
-10. [Atajos de teclado](#atajos-de-teclado)
-11. [Exportación e importación](#exportación-e-importación)
-12. [Idiomas y temas](#idiomas-y-temas)
-13. [Persistencia y privacidad](#persistencia-y-privacidad)
-14. [Limitaciones del navegador](#limitaciones-del-navegador)
-15. [Arquitectura del proyecto](#arquitectura-del-proyecto)
-16. [Desarrollo y pruebas](#desarrollo-y-pruebas)
-17. [Solución de problemas](#solución-de-problemas)
-18. [Roadmap](#roadmap)
-19. [Contribuciones](#contribuciones)
-20. [Licencia](#licencia)
+10. [Horarios normales e intensivos](#horarios-normales-e-intensivos)
+11. [Atajos de teclado](#atajos-de-teclado)
+12. [Exportación e importación](#exportación-e-importación)
+13. [Idiomas y temas](#idiomas-y-temas)
+14. [Persistencia y privacidad](#persistencia-y-privacidad)
+15. [Limitaciones del navegador](#limitaciones-del-navegador)
+16. [Arquitectura del proyecto](#arquitectura-del-proyecto)
+17. [Desarrollo y pruebas](#desarrollo-y-pruebas)
+18. [Solución de problemas](#solución-de-problemas)
+19. [Roadmap](#roadmap)
+20. [Contribuciones](#contribuciones)
+21. [Licencia](#licencia)
 
 ## Capturas y demostración
 
@@ -135,6 +137,7 @@ Funciona sin conexión, guarda todo en un archivo JSON local y no necesita permi
 | 🌍 **Español e inglés** | Cambia al instante, sin recargar. |
 | 🌗 **Claro y oscuro** | Tema claro, oscuro o según el sistema; diseño adaptado a escritorio, tableta y móvil. |
 | ♿ **Accesible** | Navegación completa por teclado con foco visible, botones del tamaño adecuado en pantallas táctiles y respeto de `prefers-reduced-motion`. |
+| 🎫 **Tareas e imputación** *(2.2)* | Tickets con estimación, cronómetro con cambio en un clic, pausa automática en los descansos y resumen listo para imputar (copiar, CSV, decimal). |
 | 💾 **Copias completas** *(2.1)* | Un solo JSON con jornadas, ajustes y festivos; restauración validada, con copia automática previa. |
 | 🪟 **Modo compacto** *(2.1)* | Widget de 360 px en la misma pestaña, en una ventana aparte o flotando encima (si el navegador lo permite). |
 | 🔔 **Avisos** *(2.1)* | A 30, 15, 5, 1 min o los que elijas; jornada completada y descansos. Dentro de Jornada, en el escritorio o con sonido. |
@@ -254,6 +257,141 @@ y en el calendario, donde cada día muestra sus horas y su exceso o déficit.
 - Hay sugerencias rápidas, como «Reunión con el equipo» o «Cita médica». Las notas se ven discretamente en el calendario y se incluyen al exportar.
   **Nunca modifican los cálculos de tiempo.**
 
+## Tareas e imputación de horas (2.2)
+
+Jornada también te dice **en qué tickets** has invertido el tiempo, cuánto te queda de cada estimación y qué horas
+tienes que trasladar al sistema de tu empresa. Es un seguimiento **personal y local**: no se conecta a Jira
+ni a ninguna aplicación corporativa.
+
+> [!IMPORTANT]
+> **Fichaje laboral y horas imputadas son cosas distintas.** El fichaje (entrada, descansos, salida) mide tu jornada.
+> Las tareas reparten ese tiempo entre tickets. Uno nunca modifica al otro: si no cuadran, Jornada te avisa y te deja corregirlo.
+
+<p align="center">
+  <img src="docs/screenshots/tasks-strip.png" alt="Franja del panel con la tarea activa, su cronómetro y los botones Cambiar y Pausar" width="860">
+</p>
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/tasks.png" alt="Tarjetas de tareas con estimación, progreso y botones de cambio"><br><sub><b>Tareas</b>: estimación, progreso y cambio en un clic.</sub></td>
+    <td width="50%"><img src="docs/screenshots/tasks-day.png" alt="Vista diaria: trabajo efectivo frente a tiempo imputado y tramos del día"><br><sub><b>Día</b>: trabajo efectivo frente a lo imputado, tramo a tramo.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/tasks-week.png" alt="Vista semanal de imputación por día, proyecto y ticket"><br><sub><b>Semana</b>: objetivo de imputación, por proyecto y por ticket.</sub></td>
+    <td><img src="docs/screenshots/tasks-report.png" alt="Resumen para imputación agrupado por día con estado imputado o pendiente"><br><sub><b>Resumen para imputación</b>: copiar, CSV y marcar como imputado.</sub></td>
+  </tr>
+</table>
+
+<sub>Todos los tickets de las capturas (DEMO-…) son ficticios.</sub>
+
+### Añadir tickets
+
+Botón **Tareas** (icono de ticket) en la barra superior → **Nueva tarea**.
+
+- **Clave** del ticket (por ejemplo `DEMO-101`). Es opcional: sin clave es *trabajo interno*, como reuniones o formación.
+- **Título**, **proyecto** (opcional; sugiere los que ya usas), **estimación** en H:MM, **color** y **notas**.
+- **Favorita** ⭐: aparece primero en el selector y en la franja del panel.
+- Las claves no se repiten; Jornada las guarda en mayúsculas.
+
+### Registrar tiempo con el cronómetro
+
+- **Empezar** en una tarjeta, en la franja del panel o desde el **selector rápido**
+  (<kbd>Alt</kbd>+<kbd>Mayús</kbd>+<kbd>K</kbd>: escribe parte de la clave o del título y pulsa <kbd>Intro</kbd>).
+- **Cambiar de tarea** en uno o dos clics: el tramo anterior se cierra solo y empieza el nuevo. **Nunca hay dos tareas a la vez.**
+- **Pausar:** botón de la franja o <kbd>Alt</kbd>+<kbd>Mayús</kbd>+<kbd>P</kbd>.
+- El contador se calcula con marcas de tiempo guardadas: cerrar el navegador o apagar el equipo no lo altera.
+
+Con el fichaje:
+
+| Haces | Pasa con la tarea |
+|---|---|
+| **Iniciar descanso** | El cronómetro se pausa: **el descanso no se imputa**. |
+| **Terminar descanso** | La franja ofrece **Continuar** con la misma tarea u **Otra tarea**. No se reanuda sola. |
+| **Finalizar jornada** | Se cierra el tramo activo. |
+| Empezar una tarea **sin jornada iniciada** | Jornada pregunta: *Iniciar jornada y tarea* o *Solo la tarea*. |
+| Empezar una tarea **durante un descanso** | Pregunta si terminar el descanso y empezar. |
+
+Ejemplo: 08:00–10:00 `DEMO-123`, 10:00–14:00 `DEMO-145` y 15:00–17:00 `DEMO-170` dan tres tramos y **8 h imputadas**.
+
+### Añadir tiempo manualmente
+
+- En cada tarjeta, **+15**, **+30** o **+1 h** añaden tiempo **hoy**.
+- **Añadir tramo** (vista *Día*): cualquier fecha pasada, con duración (15 min, 30 min, 1 h, 2 h o la que escribas)
+  o con hora de inicio y fin. Sirve para el ticket que olvidaste fichar ayer.
+- Los registros manuales quedan **marcados como «Manual»** en todas las vistas y en el resumen.
+
+### Estimaciones y progreso
+
+Cada tarjeta muestra lo registrado, la estimación, el porcentaje y lo que queda:
+`DEMO-123 · 5 h 30 min / 8 h · 68,75 % · quedan 2 h 30 min`.
+Las estimaciones **son orientativas**: puedes superarlas y Jornada muestra el exceso (con la barra rayada), sin impedir nada.
+
+### Corregir tramos
+
+Desde la vista **Día** o desde **Sesiones** (icono de lista en la tarjeta), pulsa ✏️ en un tramo:
+
+- **Editar** la hora, la duración, la nota o la tarea (**mover** el tramo a otro ticket).
+- **Dividir:** elige dónde cortar y para qué tarea es la segunda parte. Las dos partes **suman siempre el tiempo original**.
+- **Eliminar:** siempre pide confirmación. Borrar una tarea con tramos también pide confirmación expresa.
+- **Sin solapamientos:** dos tramos con hora nunca pueden coincidir; Jornada te dice cuáles chocan.
+- **Completar o reabrir** una tarea desde su tarjeta o su editor.
+
+### Discrepancias con el fichaje
+
+La vista **Día** compara el **trabajo efectivo** del fichaje con lo **imputado** y avisa cuando:
+
+- has imputado **más** que el trabajo efectivo;
+- un tramo cae **fuera del trabajo** (en un descanso, antes de la entrada o después de la salida), por ejemplo tras corregir un fichaje;
+- un cronómetro sigue abierto **desde otro día**;
+- usaste el cronómetro un día **sin fichaje**.
+
+**Ajustar los tramos al fichaje…** propone recortar lo que sobra, te dice cuánto y **solo lo aplica si confirmas**.
+Corregir un fichaje nunca cambia los tramos por su cuenta.
+
+### Consultar imputaciones
+
+- **Día:** trabajo efectivo, imputado, tiempo **sin asignar**, barra del día (fichaje arriba, tareas abajo), tramos y reparto por tarea.
+- **Semana:** horas imputadas de lunes a domingo frente al trabajo efectivo, por proyecto y por ticket.
+  El **objetivo de imputación** (por defecto 40 h, en *Ajustes → Horario*) es **independiente** de la jornada de tus perfiles.
+  Mientras la semana no termina, lo que falta se muestra como *pendiente*, nunca como déficit.
+- **Panel principal:** la franja indica lo imputado hoy y lo que falta por asignar.
+
+### Resumen para imputación y exportar
+
+Pestaña **Resumen para imputación**:
+
+| Fecha | Ticket | Tiempo |
+|---|---|---|
+| 29/10/2026 | DEMO-123 | 2 h |
+| 29/10/2026 | DEMO-145 | 4 h |
+| 29/10/2026 | DEMO-170 | 2 h |
+
+- Filtra por fechas (Hoy, Ayer, Esta semana, Semana pasada, Este mes o un rango) y **agrupa por día o por ticket**.
+- Tiempos en **horas y minutos** o en **decimal** (1 h 30 min = 1,50 h, redondeado a centésimas). La preferencia se recuerda.
+- **Copiar fila** o **Copiar resumen**: texto separado por tabuladores, listo para pegar en una hoja de cálculo o en el formulario de tu empresa.
+- **CSV:** UTF-8 con BOM, separado por `;`, compatible con Excel y LibreOffice.
+- Marca cada fila como **«Ya imputado»** o **«Pendiente de imputar»**, o todas a la vez.
+  Es **solo una marca personal**: Jornada no envía nada a Jira ni a ninguna aplicación.
+- El tramo que está en marcha no aparece hasta que lo cierras.
+
+### Atajos
+
+| Acción | Predeterminado |
+|---|---|
+| Elegir o cambiar de tarea | <kbd>Alt</kbd> + <kbd>Mayús</kbd> + <kbd>K</kbd> |
+| Pausar o continuar la tarea | <kbd>Alt</kbd> + <kbd>Mayús</kbd> + <kbd>P</kbd> |
+
+Se pueden cambiar en *Ajustes → Atajos*, como los demás.
+
+### Privacidad y limitaciones
+
+- Los tickets y sus descripciones pueden ser información de trabajo: **todo se queda en `data/tasks.json`**, en tu equipo.
+  No hay telemetría ni conexiones externas. El `.gitignore` excluye `data/`, `tasks.json`, las copias y los CSV exportados.
+- Las tareas y sus tramos van en la **copia de seguridad completa** (esquema 2). Las copias de la versión 2.1 se siguen pudiendo restaurar.
+- **No hay integración** con Jira ni con el sistema de imputación de tu empresa: copiar, exportar y marcar es manual, a propósito.
+- El cronómetro solo puede estar en una tarea. Un tramo que pasa de medianoche cuenta en el día en que empezó.
+- La franja del panel se puede ocultar en *Ajustes → Apariencia → Tarjetas* («Tarea activa»).
+
 ## Novedades de Jornada 2.1
 
 Ocho funciones nuevas, todas opcionales y agrupadas en *Ajustes* o en vistas propias para no recargar el panel.
@@ -277,27 +415,29 @@ Ninguna cambia los cálculos de las jornadas existentes ni necesita instalar nad
 - Si los datos cambian entre la vista previa y la confirmación (por ejemplo, fichas desde otra ventana), se pide repetir el proceso.
 
 <details>
-<summary><b>Formato del archivo (versión de esquema 1)</b></summary>
+<summary><b>Formato del archivo (versión de esquema 2)</b></summary>
 
 ```json
 {
   "format": "jornada-backup",
-  "schema_version": 1,
-  "app_version": "2.1.0",
+  "schema_version": 2,
+  "app_version": "2.2.0",
   "created_at": "2026-10-30T18:05:00+01:00",
   "checksum": "sha256:…",
   "counts": { "days": 120, "calendar_days": 14, "recurring": 9, "…": "…" },
   "data": {
     "records":  { "version": 1, "days": { "2026-10-29": { "clock_in": "…", "breaks": [ … ] } } },
     "settings": { "version": 3, "profiles": { … }, "accent": "teal", "notifications": { … } },
-    "calendar": { "version": 1, "days": { "2026-12-08": { "type": "holiday", "label": "…" } }, "recurring": { "12-25": { "label": "Navidad" } } }
+    "calendar": { "version": 1, "days": { "2026-12-08": { "type": "holiday", "label": "…" } }, "recurring": { "12-25": { "label": "Navidad" } } },
+    "tasks":    { "version": 1, "tasks": { "t_…": { "key": "DEMO-101", "…": "…" } }, "entries": { "e_…": { "…": "…" } } }
   }
 }
 ```
 
 - `checksum` es el SHA-256 de `data` serializado de forma canónica (claves ordenadas, sin espacios).
   Es opcional al restaurar, pero si está debe coincidir.
-- Las versiones futuras podrán leer este esquema y migrarlo. Esta versión rechaza `schema_version` mayores que 1.
+- Las versiones futuras podrán leer este esquema y migrarlo. Esta versión rechaza `schema_version` mayores que 2.
+- El esquema 2 (Jornada 2.2) añade `tasks`. Las copias de esquema 1 (2.1) se restauran con la lista de tareas vacía.
 - Las copias de 2.0, con ajustes de versión 2 y sin `calendar`, se aceptan y se migran al restaurar.
 </details>
 
@@ -449,6 +589,8 @@ Tarjeta **Esta semana** en el panel y *Ajustes → Horario → Objetivo semanal*
 | Cambiar tema claro/oscuro | <kbd>Alt</kbd> + <kbd>Mayús</kbd> + <kbd>T</kbd> |
 | Editar el día actual | <kbd>Alt</kbd> + <kbd>Mayús</kbd> + <kbd>E</kbd> |
 | Simular jornada *(2.1)* | <kbd>Alt</kbd> + <kbd>Mayús</kbd> + <kbd>S</kbd> |
+| Elegir o cambiar de tarea *(2.2)* | <kbd>Alt</kbd> + <kbd>Mayús</kbd> + <kbd>K</kbd> |
+| Pausar o continuar la tarea *(2.2)* | <kbd>Alt</kbd> + <kbd>Mayús</kbd> + <kbd>P</kbd> |
 
 - **Duplicados:** Jornada los detecta y no los asigna.
 - **Atajos reservados:** avisa de los que suelen pertenecer al navegador o al sistema (por ejemplo, <kbd>Ctrl</kbd>+<kbd>T</kbd>).
@@ -504,6 +646,7 @@ tradúcelo y añade su código a `LANGUAGES` en [`i18n.py`](i18n.py).
 | `data/records.json` | Tus jornadas: fichajes, descansos, notas, perfil y objetivo de cada día |
 | `data/settings.json` | Perfiles, semana, verano, atajos, idioma, apariencia, avisos, objetivo semanal y reglas de tipos de día |
 | `data/calendar.json` *(2.1)* | Festivos (concretos y recurrentes), vacaciones y ausencias |
+| `data/tasks.json` *(2.2)* | Tareas (tickets) y sus tramos de tiempo, en un solo archivo para que nunca se desincronicen |
 | `data/backups/` | Copias automáticas: antes de importar, de restaurar, de aplicar un tipo de día a jornadas existentes y de migrar ajustes |
 
 Los festivos van en su propio archivo porque son datos que crecen con los años, no ajustes. Las preferencias nuevas
@@ -540,6 +683,7 @@ jornada/
 ├── insights.py            Simulador, objetivo semanal, compensación y estadísticas (2.1, puro)
 ├── daymarks.py            Rangos de vacaciones e importación de festivos (2.1, puro)
 ├── backup.py              Formato y validación de la copia completa (2.1)
+├── tasks.py               Tareas, cronómetro, tramos, resúmenes e imputación (2.2, puro)
 ├── csvio.py               Exportación e importación CSV
 ├── i18n.py                Traducciones del servidor (usa los mismos JSON que el navegador)
 ├── storage.py             JSON con escritura atómica, recuperación y escritura conjunta de varios archivos
@@ -550,7 +694,7 @@ jornada/
 │   └── report.html        Informe imprimible A4
 ├── static/
 │   ├── css/style.css      Sistema visual: tokens, acentos, densidad, estados, responsive y movimiento
-│   ├── js/                common.js · app.js · notify.js · calendar.js · insights.js · compact.js ·
+│   ├── js/                common.js · app.js · notify.js · calendar.js · insights.js · tasks.js · compact.js ·
 │   │                      i18n.js · shortcuts.js · datatools.js (sin frameworks)
 │   ├── i18n/              es.json · en.json
 │   ├── fonts/             Plus Jakarta Sans (OFL)
@@ -567,7 +711,7 @@ Las horas se interpretan en `Europe/Madrid`, con los cambios de horario incluido
 ## Desarrollo y pruebas
 
 ```bash
-python3 -m unittest -v        # 179 pruebas
+python3 -m unittest -v        # 208 pruebas
 python3 app.py --open         # arranque manual
 python3 app.py --port 9000    # otro puerto preferido (también PORT=9000)
 WORKTIME_DATA_DIR=/tmp/pruebas python3 app.py   # datos de prueba en otra carpeta
@@ -591,6 +735,9 @@ Las pruebas cubren:
   balance acumulado, vacaciones y compensación.
 - **Personalización, avisos y modo compacto (2.1):** persistencia, contraste de los acentos, movimiento reducido,
   ninguna acción duplicada entre ventanas y el planificador de avisos **ejecutado en Chrome headless** (sin Node.js).
+- **Tareas (2.2):** cronómetro, cambio automático, pausa en descansos, fin de jornada, varias sesiones y días,
+  edición, división y movimiento de tramos, solapamientos, exceso de estimación, resúmenes diario y semanal,
+  horas decimales, persistencia tras reiniciar, copias de seguridad (esquemas 1 y 2) y datos de 2.1 sin `tasks.json`.
 - **Navegador real (2.1):** si hay Chrome o Chromium, se cargan el panel, el simulador, las estadísticas, los ajustes
   y la vista compacta con datos ficticios, y se comprueba que no hay errores de JavaScript. Si no lo hay, estas pruebas se omiten.
 

@@ -15,7 +15,7 @@ from app import asset_build, create_app
 ROOT = Path(__file__).resolve().parent.parent
 JS = sorted((ROOT / "static/js").glob("*.js"))
 DYNAMIC_IDS = {"tlExit", "daylineScale", "scHud",          # elementos que crea el propio JS
-               "bkGo", "bkConfirm", "compMinutes", "compDay"}
+               "bkGo", "bkConfirm", "compMinutes", "compDay", "tdQuickTask"}
 
 
 def template_ids(name="index.html"):
